@@ -1,0 +1,19 @@
+{
+  "note": "启动全量加载实测（临时实例 6390，独立数据目录 /tmp/redis_load_demo_1787650546，Redis 8.6.2）",
+  "steps": [
+    "SET demo:name alice / HSET demo:user:1 ... / SET demo:expire x EX 1000 → DBSIZE=3",
+    "AOF 实时落盘：appendonly.aof.1.base.rdb + appendonly.aof.1.incr.aof + manifest",
+    "优雅 SHUTDOWN → 重启同目录实例",
+    "GET demo:name=alice / HGETALL 恢复 name+alice age+30 / TTL demo:expire=998 / DBSIZE=3"
+  ],
+  "aof_content_sample": [
+    "SELECT",
+    "demo:name",
+    "alice",
+    "HSET",
+    "demo:user:1",
+    "name",
+    "alice"
+  ],
+  "conclusion": "启动=全量加载：AOF 优先（8.x 多部件），TTL 一并恢复；与 PG 差异=数据全在内存/启动加载全部/容量受内存限制"
+}

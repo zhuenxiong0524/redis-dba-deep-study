@@ -21,6 +21,41 @@ ENV-001 完成了单实例（6379）搭建。本任务仿照 PG 的实例管理�
 > 与 PG 对照：`redis-server` 前台 ≈ `postgres -D`；`--daemonize yes` ≈ `pg_ctl start` 的 detach；
 > systemd ≈ PG 的 `postgresql@.service` 模板。
 
+### 1.1.1 启动时发生了什么：数据全量加载进内存
+
+> 是——**Redis 启动过程本身 = 把磁盘持久化文件全量加载进内存，加载完成才对外服务**。
+> 内存数据库没有"部分在磁盘"的概念，所有 key 必须全进内存。
+
+**加载来源（按优先级）**：
+
+1. 同时配置 RDB+AOF → 启动**优先加载 AOF**（数据更完整）：8.x 按 `appendonlydir/` 的 manifest 读取 base RDB + incr AOF，从头回放写命令；
+2. 只有 RDB → 加载 `dump.rdb`（二进制快照直接反序列化）；
+3. 都没有/文件不存在 → 空库启动。
+
+**实测（临时实例 6390，`--dir` 指向独立目录）**：
+
+```text
+写入 3 个 key（含 EX 1000 的 TTL）→ AOF 实时落盘
+  appendonlydir/: appendonly.aof.1.base.rdb + appendonly.aof.1.incr.aof + manifest
+优雅关闭 → 重启 → GET demo:name=alice、HGETALL 恢复、TTL demo:expire=998、DBSIZE=3
+```
+
+- **TTL 也会恢复**：剩余 998/1000 秒被持久化，重启后继续倒计时；
+- 启动日志会打印加载信息：`Loading RDB produced by version 8.6.2` / `DB loaded from disk`；
+- 大实例（几十 GB）加载是秒~分钟级，期间不接受服务——**重启有"预热成本"**。
+
+**与 PG 的本质差异（PG DBA 最该记住的）**：
+
+| | PG | Redis |
+|---|---|---|
+| 数据位置 | 磁盘（堆表/索引），shared_buffers 只缓存部分页 | **全量在内存** |
+| 启动耗时 | 秒级（不用加载全部数据） | **要加载全部数据**（GB 级秒~分钟） |
+| 容量上限 | 磁盘容量 | 内存容量（必须 ≥ 数据量+碎片开销） |
+| 崩溃/断电恢复 | 从 WAL 恢复少量未落盘页 | 从 RDB/AOF 全量重建（加载=恢复） |
+
+> 运维含义：Redis 容量规划看内存、重启要挑低峰（预热成本）、"重启就好了"不等于快——加载 GB 级数据需要时间。
+
+
 ### 1.2 优雅关闭：redis-cli shutdown
 
 `redis-cli -p 6380 shutdown` 的日志序列（完整证据见 evidence/lifecycle.json）：
