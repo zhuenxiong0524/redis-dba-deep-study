@@ -1,0 +1,8 @@
+{
+  "note": "pipeline 性能对比：2000 条 SET（Redis 8.6.2，DB5）",
+  "method1_sequential": {"desc": "2000 次独立 redis-cli 连接逐个 SET", "time_s": 4.64, "round_trips": 2000},
+  "method2_pipe": {"desc": "redis-cli --pipe 单批发送 2000 条", "time_s": 0.03, "round_trips": 1, "speedup": 155},
+  "method3_multi_exec": {"desc": "2000 条包在单个 MULTI/EXEC 事务", "time_s": 0.11, "round_trips": 1, "speedup": 42},
+  "结论": "瓶颈在客户端网络往返(RTT)，不在 Redis 执行；pipeline/MULTI 把 N 次往返压缩成 1 次",
+  "注意": "MULTI/EXEC 有事务语义（原子排队）；pipeline 无原子性只是批量发送；二者都建议合理分片（如 100~1000 条一批），避免单批过大"
+}

@@ -1,0 +1,15 @@
+{
+  "note": "WATCH 乐观锁实测（双客户端，Redis 8.6.2，DB5）",
+  "scenario_A_modified": {
+    "流程": "客户端1 WATCH counter → 客户端2 INCR counter(10→11) → 客户端1 MULTI SET counter 999 EXEC",
+    "结果": "EXEC 返回 (nil)，999 未生效，counter=11",
+    "结论": "WATCH 监视的 key 在事务前被其他客户端修改，EXEC 直接放弃（返回 nil，不执行排队命令）"
+  },
+  "scenario_B_untouched": {
+    "流程": "WATCH counter → 无人修改 → MULTI SET counter 999 EXEC",
+    "结果": "EXEC 返回 OK，counter=999",
+    "结论": "key 未被修改则正常提交"
+  },
+  "scenario_C_unwatch": {"WATCH → UNWATCH → MULTI/EXEC": "EXEC 正常执行（counter=2），UNWATCH 解除所有监视"},
+  "对比PG": "类似 PG 的 SELECT ... FOR UPDATE 悲观锁 的反面——不锁，靠提交时校验版本，冲突就重试；适合读多写少的场景"
+}

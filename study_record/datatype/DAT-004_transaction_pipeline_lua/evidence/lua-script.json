@@ -1,0 +1,14 @@
+{
+  "note": "Lua 脚本实测（Redis 8.6.2，DB5）",
+  "eval_basic": {"EVAL return redis.call('SET',KEYS[1],ARGV[1])": "OK", "EVAL return redis.call('GET',KEYS[1])": "hello"},
+  "eval_multi_cmd": {"SET 1 + INCR + INCR": "3", "结论": "脚本内多条命令原子执行，单线程期间不会被其他客户端插入"},
+  "cas_script": {
+    "脚本": "local v=GET(KEYS[1]); if v==ARGV[1] then SET(KEYS[1],ARGV[2]); return 1 else return 0 end",
+    "old=5 匹配": "返回 1，stock=8",
+    "old=5 不匹配(实际8)": "返回 0，stock 保持 8",
+    "结论": "GET→比较→SET 在脚本内原子完成，比 WATCH+MULTI 更简单可靠"
+  },
+  "script_error": {"SET x + INCR(非数字)": "SET 已生效(key=x)，INCR 报 ERR 中止脚本，无回滚（与 MULTI 一致）"},
+  "functions": {"FUNCTION LOAD 注册 setget": "mylib", "FCALL setget 1 key val": "funcvalue", "结论": "Redis 7+ Functions 是脚本的正式化：可命名/可复用/有沙箱"},
+  "evalsha": {"SCRIPT LOAD → EVALSHA": "避免每次传脚本体，降低带宽；SCRIPT EXISTS 校验"}
+}

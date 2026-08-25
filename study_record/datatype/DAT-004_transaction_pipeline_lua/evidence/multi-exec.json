@@ -1,0 +1,14 @@
+{
+  "note": "MULTI/EXEC/DISCARD 语义实测（Redis 8.6.2，DB5）",
+  "normal": {"MULTI SET k1 v1 INCR k2 EXEC": "QUEUED x2 → OK；k1=v1 k2=1"},
+  "queue_time_error": {
+    "现象": "MULTI 中出现未知命令 WRONGCMD → 队列期报 ERR；EXEC → EXECABORT Transaction discarded because of previous errors",
+    "结论": "语法错误在排队时就能发现，整个事务被放弃（k1/k3 均未执行）"
+  },
+  "runtime_error": {
+    "现象": "MULTI SET k1 new1 / INCR k2(非数字) / SET k3 new3 → EXEC 时 INCR 报 ERR，但 k1=new1、k3=new3 照常执行",
+    "结论": "运行期错误不触发回滚，其他命令继续执行——与 PG 事务本质不同"
+  },
+  "discard": {"MULTI SET k1 discard / DISCARD": "排队命令被丢弃，k1 保持原值"},
+  "对比PG": "PG BEGIN/ROLLBACK 可撤销全部未提交写入；Redis MULTI/EXEC 只保证'原子排队执行'，无回滚无隔离级别"
+}
