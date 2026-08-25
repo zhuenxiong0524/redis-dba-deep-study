@@ -1,0 +1,19 @@
+{
+  "note": "SQL 查询模式 → Redis 命令对照（新手速查）",
+  "patterns": [
+    {"sql": "SELECT * FROM t WHERE id=1", "redis": "HGETALL t:1 / GET k"},
+    {"sql": "SELECT col FROM t WHERE id=1", "redis": "HGET t:1 col"},
+    {"sql": "SELECT * FROM t WHERE id IN (1,2,3)", "redis": "MGET / HMGET / pipeline 批量"},
+    {"sql": "SELECT * FROM t ORDER BY score DESC LIMIT 10", "redis": "ZREVRANGE rank 0 9"},
+    {"sql": "SELECT * FROM t ORDER BY id LIMIT 10,20 (分页)", "redis": "LRANGE list 10 29 / ZRANGE rank 10 29"},
+    {"sql": "SELECT count(*) FROM t", "redis": "SCARD/HLEN/LLEN/ZCARD（单集合）；全表行数用计数器 INCR 或 SCAN"},
+    {"sql": "SELECT EXISTS(SELECT 1 FROM t WHERE id=1)", "redis": "EXISTS t:1"},
+    {"sql": "UPDATE t SET n=n+1 WHERE id=1", "redis": "INCR k / HINCRBY h f 1"},
+    {"sql": "DELETE FROM t WHERE id=1", "redis": "DEL t:1"},
+    {"sql": "SELECT ... WHERE name LIKE 'abc%'", "redis": "SCAN 0 MATCH 'abc*'（生产慎用，量大勿扫）"},
+    {"sql": "INSERT ... ON CONFLICT DO NOTHING", "redis": "SETNX k v / HSETNX h f v"},
+    {"sql": "TTL/过期清理", "redis": "EXPIRE k 3600 / TTL k（key 级过期是 Redis 特色）"},
+    {"sql": "JOIN 两张表", "redis": "无 JOIN；客户端多次取或冗余存储，cluster 下用 hash tag 同槽"},
+    {"sql": "事务 BEGIN/COMMIT/ROLLBACK", "redis": "MULTI/EXEC/DISCARD（无回滚）+ WATCH 乐观锁"}
+  ]
+}

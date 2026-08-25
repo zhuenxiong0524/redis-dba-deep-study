@@ -1,0 +1,15 @@
+{
+  "note": "Redis 切库语义实测（16 个逻辑 DB，本实例默认 databases 16）",
+  "experiment": {
+    "DB0": {"SET env003:db:demo db0-key": "OK", "DBSIZE": 1, "EXISTS env003:db:demo": 1},
+    "DB5": {"DBSIZE": 5, "EXISTS env003:db:demo": 0, "note": "同一 key 名在不同 DB 互不可见、互不影响"},
+    "INFO keyspace": "db0:keys=1  db5:keys=5"
+  },
+  "switch_cmd": "SELECT 0..15（切换当前库，后续命令作用于新库）",
+  "结论": {
+    "何时切": "实验/临时隔离可用；生产多业务不要用 DB 号隔离",
+    "为什么": "复制、持久化(RDB/AOF)、FLUSHALL、INFO 都是整实例级，DB 号无独立备份/权限/复制能力",
+    "生产实践": "默认 DB0 + key 前缀命名空间（user:xxx / order:xxx），多租户用独立实例或 cluster",
+    "与PG对照": "PG database = Redis 实例/集群；PG schema/表 = Redis key 前缀"
+  }
+}

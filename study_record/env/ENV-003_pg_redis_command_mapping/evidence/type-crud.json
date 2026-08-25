@@ -1,0 +1,23 @@
+{
+  "note": "五类型 CRUD 双侧对照实测（PG 18.4 t_* 临时表 ↔ Redis 8.6.2 env003:* DB5）",
+  "hash_vs_table_row": {
+    "pg": "CREATE TABLE t_user(id,name,email,age); INSERT 2 行; SELECT * WHERE id=1 → Alice/30; UPDATE age=31; DELETE id=2; count=1",
+    "redis": "HSET user:1 name Alice email alice@x.com age 30; HGETALL user:1; HGET user:1 name → Alice; HSET user:1 age 31; DEL user:2; 行数无内置需 SCAN/计数器",
+    "映射": "表=t_user → key 前缀 user:；一行=一个 key(user:1)；一列=一个 field；主键=key 后半段"
+  },
+  "zset_vs_ranked_table": {
+    "pg": "CREATE TABLE t_rank(player,score); ORDER BY score DESC → p2,p3,p1; rank() 窗口函数求 p2=1",
+    "redis": "ZADD rank 100 p1 200 p2 150 p3; ZREVRANGE rank 0 -1 → p2,p3,p1; ZREVRANK rank p2 → 0; ZINCRBY rank 50 p1 → 150",
+    "映射": "ZSet = 自带排序索引的排行榜，score 即排序列；ZINCRBY 对应 UPDATE score=score+N"
+  },
+  "set_vs_dedup_table": {
+    "pg": "CREATE TABLE t_tag(user_id,tag); SELECT DISTINCT tag → a,b; WHERE user_id=1 → a,b",
+    "redis": "SADD user:1:tags a b; SADD user:2:tags b; SMEMBERS; SUNION → b,a; SINTER → b; SCARD → 2",
+    "映射": "每用户一个 Set key；集合运算 SUNION/SINTER 对应 SQL 的 UNION/INTERSECT"
+  },
+  "list_vs_queue_table": {
+    "pg": "CREATE TABLE t_queue(id serial,msg); INSERT 3; ORDER BY id LIMIT 2 → m1,m2; DELETE 前2 → 剩 m3",
+    "redis": "RPUSH queue m1 m2 m3; LRANGE 0 1 → m1,m2; LPOP 两次; LLEN → 1 剩 m3",
+    "映射": "List 天然队列：RPUSH 进、LPOP 出；LRANGE 对应 ORDER BY id + LIMIT 分页"
+  }
+}
