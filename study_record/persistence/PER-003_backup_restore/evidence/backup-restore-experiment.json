@@ -1,0 +1,28 @@
+{
+  "note": "PER-003 备份恢复演练实测（Redis 8.6.2，主实例 6395，2026-08-25）",
+  "dataset": { "keys": 50003, "包含": ["Hash bak:hash", "List bak:list", "TTL key bak:ttl(3600s)"] },
+  "backup": {
+    "bgsave": "BGSAVE → dump.rdb 1,339,086B",
+    "copy_drill": "时间戳目录备份（backups/YYYYMMDD_HHMMSS/dump.rdb）",
+    "remote": "redis-cli --rdb → 1,339,169B，Checksum OK，50003 keys"
+  },
+  "verify": {
+    "redis-check-rdb 正常文件": "\\o/ RDB looks OK! 50003 keys read, 1 expires",
+    "redis-check-aof": "AOF is valid，size=3,989,094B，ok_up_to_line=350041，内容=SELECT+SET 命令日志"
+  },
+  "restore_drill": {
+    "方法": "拷贝 dump.rdb 到新实例数据目录启动（端口 6396）",
+    "result": "DBSIZE=50003，backup:k1/bak:hash 字段完整，bak:ttl TTL=3591s（还原过期元数据）"
+  },
+  "aof_restore_drill": {
+    "方法": "shutdown → 移走 dump.rdb（模拟 RDB 丢失）→ 重启",
+    "logs": "DB loaded from base file appendonly.aof.1.base.rdb / DB loaded from incr file appendonly.aof.1.incr.aof",
+    "result": "DBSIZE=50005（含 BGSAVE 后写入的 aof:marker / aof:counter=1）→ AOF 补上 RDB 之后的增量"
+  },
+  "corruption": {
+    "方法": "dump.rdb 偏移 1000 处改 1 字节",
+    "redis-check-rdb": "--- RDB ERROR DETECTED --- [offset 1339086] RDB CRC error",
+    "startup_with_corrupt": "Wrong RDB checksum expected ... Aborting now / RDB CRC error → 启动失败（Connection refused）",
+    "recovery": "用上一份完好备份重启恢复"
+  }
+}

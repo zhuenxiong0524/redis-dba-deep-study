@@ -1,0 +1,12 @@
+{
+  "note": "PER-003 备份恢复相关源码/工具取证（Redis 8.6.2）",
+  "tools": {
+    "redis-check-rdb": { "bin": "/usr/local/bin/redis-check-rdb", "detail": "校验 RDB 结构+CRC32 校验和，损坏返回 RDB ERROR DETECTED" },
+    "redis-check-aof": { "bin": "/usr/local/bin/redis-check-aof", "detail": "扫描命令流到第一个坏命令（ok_up_to_line），可 --fix 截断" },
+    "redis-cli --rdb": { "detail": "通过 SYNC/PSYNC 协议从运行实例拉取当前 RDB，适合远程备份" }
+  },
+  "load_priority": {
+    "detail": "启动加载优先级：AOF(base.rdb+incr.aof) > RDB（dump.rdb）；AOF 开启时以 AOF 为准（PER-002 已证）"
+  },
+  "mechanism_note": "RDB 是时间点快照；AOF 记录其后的命令；两者组合=备份+RPO 权衡（RDB 省空间、AOF 少丢数据，无 PG 的 WAL 归档/PITR 机制）"
+}
