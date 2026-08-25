@@ -1,0 +1,15 @@
+{
+  "note": "Cache-Aside 读写流程（PG 18.4:54184 t_cache ↔ Redis 8.6.2:6379 DB5 cache:user:N）",
+  "read_path": [
+    "GET cache:user:1",
+    "miss → 查 PG: SELECT name FROM t_cache WHERE id=1",
+    "SET cache:user:1 <val> EX 60（写缓存+TTL）",
+    "下次读命中"
+  ],
+  "write_path": [
+    "更新 DB（UPDATE t_cache ...）",
+    "删除缓存 DEL cache:user:1（不是更新缓存）",
+    "下次读重建新值"
+  ],
+  "core_idea": "写操作只删缓存不写缓存：让读路径按需重建，避免应用层维护两套写逻辑"
+}

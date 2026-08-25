@@ -1,0 +1,19 @@
+{
+  "note": "连接池实验（INFO clients connected_clients / ss TIME-WAIT）",
+  "with_pool": {
+    "method": "20 个常驻连接(管道保持)",
+    "connected_clients": 21,
+    "observe": "连接复用稳定，无建立/断开开销"
+  },
+  "without_pool": {
+    "method": "300 次 redis-cli 短连接(每请求新建)",
+    "observe": "TIME-WAIT 堆积 422 个；连接建立(TCP握手+Redis auth)成为每请求固定开销"
+  },
+  "pool_params": [
+    "min/max idle（最小/最大空闲连接）",
+    "max active（最大并发连接）",
+    "connection timeout / socket timeout",
+    "连接健康检查与自动重建"
+  ],
+  "insight": "连接池=复用 TCP 连接，避免握手与认证开销；INFO clients 的 connected_clients 应稳定在池大小附近，而非随 QPS 波动"
+}

@@ -1,0 +1,40 @@
+{
+  "note": "双写一致性竞态实测（同一 id=1，DB 与缓存值对比）",
+  "scenario_A_write_cache": {
+    "flow": "T1 提交 DB v1 后写缓存前卡 1.5s；T2 插队提交 DB v2 并写缓存 v2；T1 醒来覆盖缓存 v1",
+    "result": {
+      "db": "alice-v2",
+      "cache": "alice-v1",
+      "consistent": false
+    },
+    "lesson": "先写缓存 + 并发乱序 → 旧值覆盖新值，缓存永远可能是脏的"
+  },
+  "scenario_B_del_then_db": {
+    "flow": "T 删缓存 → 写 DB 前(慢)；R 读 miss → 读 DB 旧值 v2 → 写缓存 v2；T 完成 DB v3",
+    "result": {
+      "db": "alice-v3",
+      "cache": "alice-v2",
+      "consistent": false
+    },
+    "lesson": "先删缓存再写 DB：读请求在窗口期插入旧值"
+  },
+  "scenario_C_cache_aside": {
+    "flow": "T 提交 DB v4 → DEL 缓存；R miss → 读 DB v4 → 写缓存 v4",
+    "result": {
+      "db": "alice-v4",
+      "cache": "alice-v4",
+      "consistent": true
+    },
+    "lesson": "先更新 DB 再删缓存：删除后的重建必然读到已提交的新值（标准姿势）"
+  },
+  "scenario_D_double_delete": {
+    "flow": "删缓存 → 写 DB v5（慢）→ 读插入旧值 v4 → T 完成后延迟二次删除缓存",
+    "result": {
+      "db": "alice-v5",
+      "cache": "空(已二次删除)",
+      "consistent": true
+    },
+    "lesson": "延迟双删兜底：二次删除清掉竞态期间写入的旧值，下次读重建 v5；延迟时间需 > 读请求写回缓存的最长耗时"
+  },
+  "conclusion": "Cache-Aside 标准(先 DB 后删缓存)在绝大多数时序下一致；极端竞态用延迟双删/版本号/订阅 binlog 兜底"
+}
