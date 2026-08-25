@@ -1,0 +1,15 @@
+{
+  "note": "枚举/帮助/权限对照实测",
+  "enum": {
+    "pg_tables(public)": "SELECT tablename FROM pg_tables WHERE schemaname='public'",
+    "redis": "SCAN 0 MATCH 'dat003:*' COUNT 10（KEYS 在生产被 rename-command 禁用）"
+  },
+  "help": {
+    "pg": "\\h SELECT（命令语法）/ \\?（psql 元命令）",
+    "redis": "help @string（按组查）/ COMMAND DOCS <cmd>"
+  },
+  "perm": {
+    "pg": "SELECT rolname FROM pg_roles → postgres",
+    "redis": "ACL LIST → user default on ... +@all（本实例仅默认用户，ACL 未细分）"
+  }
+}

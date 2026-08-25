@@ -1,0 +1,19 @@
+{
+  "note": "PG ↔ Redis 基础命令对照表（速查数据）",
+  "connect": {"pg": "psql -h 127.0.0.1 -p 54184 -d postgres -U postgres", "redis": "redis-cli -h 127.0.0.1 -p 6379 -a <pass>"},
+  "conn_env": {"pg": "PGHOST/PGPORT/PGDATABASE/PGUSER", "redis": "REDISCLI_AUTH"},
+  "status": {"pg": "pg_isready -h -p; SELECT pg_is_in_recovery()", "redis": "ping; INFO replication"},
+  "version": {"pg": "SELECT version()", "redis": "INFO server | grep redis_version"},
+  "db_list": {"pg": "\\l / SELECT datname FROM pg_database", "redis": "INFO keyspace; SELECT 0..15（16个逻辑库，无'建库'）"},
+  "table_key_list": {"pg": "\\dt / SELECT tablename FROM pg_tables", "redis": "SCAN（生产禁用 KEYS）"},
+  "schema_info": {"pg": "\\d table", "redis": "TYPE key; OBJECT ENCODING key; MEMORY USAGE key"},
+  "dml": {"pg": "INSERT/SELECT/UPDATE/DELETE + WHERE", "redis": "SET/GET/DEL + 各类型命令"},
+  "transaction": {"pg": "BEGIN/COMMIT/ROLLBACK/SAVEPOINT（回滚+隔离）", "redis": "MULTI/EXEC/DISCARD（打包执行，无回滚）"},
+  "help": {"pg": "\\h <cmd>; \\?", "redis": "help @<group>; COMMAND DOCS"},
+  "perm": {"pg": "\\du; CREATE ROLE; GRANT", "redis": "ACL LIST; ACL SETUSER"},
+  "config": {"pg": "SHOW <param>; SHOW config_file", "redis": "CONFIG GET（生产常被禁用）; INFO"},
+  "backup": {"pg": "pg_dump / pg_basebackup", "redis": "BGSAVE / redis-cli --rdb"},
+  "monitor": {"pg": "pg_stat_activity / pg_stat_statements", "redis": "INFO stats; SLOWLOG GET; CLIENT LIST"},
+  "slowlog": {"pg": "log_min_duration_statement + auto_explain", "redis": "SLOWLOG GET / SLOWLOG LEN"},
+  "exit": {"pg": "\\q", "redis": "quit / Ctrl+C"}
+}

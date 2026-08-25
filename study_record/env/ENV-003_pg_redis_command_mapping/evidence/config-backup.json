@@ -1,0 +1,13 @@
+{
+  "note": "配置查看与备份对照实测",
+  "config": {
+    "pg": "SHOW port → 54184；SHOW config_file → /data/pgdata/pgdata18.4/postgresql.conf",
+    "redis": "CONFIG GET maxmemory → ERR unknown command 'CONFIG'（本实例 rename-command CONFIG '' 禁用）",
+    "结论": "Redis 生产环境常用 rename-command 禁用 CONFIG/KEYS 等危险命令，查看配置只能看 redis.conf 或 INFO"
+  },
+  "backup": {
+    "pg": "pg_dump -h 127.0.0.1 -p 54184 -d postgres --schema-only -f /tmp/pg_dump_demo.sql → OK",
+    "redis": "BGSAVE → Background saving started（dump.rdb）",
+    "对等": "pg_dump ≈ redis-cli --rdb / BGSAVE；pg_basebackup ≈ 从库全量同步（REP 系列）"
+  }
+}

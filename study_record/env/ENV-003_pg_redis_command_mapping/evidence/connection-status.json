@@ -1,0 +1,16 @@
+{
+  "note": "PG 18.4 ↔ Redis 8.6.2 连接与实例状态实测",
+  "pg": {
+    "version": "PostgreSQL 18.4 on x86_64-pc-linux-gnu (gcc 10.2.1)",
+    "connect": "/usr/local/pgsql/pgsql18.4/bin/psql -h 127.0.0.1 -p 54184 -d postgres",
+    "pg_isready": "127.0.0.1:54184 - accepting connections",
+    "databases": ["buf_study", "postgres", "regression", "template0", "template1", "testzex", "testzex1"]
+  },
+  "redis": {
+    "version": "8.6.2",
+    "connect": "redis-cli -h 127.0.0.1 -p 6379 -a 123456 --no-auth-warning",
+    "ping": "PONG",
+    "tcp_port": 6379,
+    "note": "redis-cli -a 类似 PG 的 PGPASSWORD；生产建议用 REDISCLI_AUTH 或 ACL，避免命令行明文"
+  }
+}

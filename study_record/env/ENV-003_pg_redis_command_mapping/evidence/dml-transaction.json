@@ -1,0 +1,23 @@
+{
+  "note": "DML 与事务对照实测（PG 单会话 / Redis 单连接）",
+  "pg_dml": {
+    "CREATE TEMP TABLE t_demo": "CREATE TABLE",
+    "INSERT VALUES (1,'a'),(2,'b')": "INSERT 0 2",
+    "SELECT WHERE id=1": "1 | a"
+  },
+  "pg_transaction": {
+    "BEGIN; INSERT (3,'c'); SELECT count": 3,
+    "ROLLBACK": null,
+    "SELECT count after": 2,
+    "结论": "回滚撤销未提交写入"
+  },
+  "redis_dml": {
+    "HSET user id 1 name a": "1",
+    "HGETALL user": "id/1/name/a"
+  },
+  "redis_transaction": {
+    "MULTI; SET tx v1; INCR counter; EXEC": "QUEUED x2 → OK; GET tx=v1, counter=1",
+    "MULTI; SET x 1; DISCARD": "EXISTS x = 0",
+    "结论": "MULTI/EXEC 是'打包顺序执行'，无回滚；命令错不撤销其他已执行命令（与 PG 事务本质不同）"
+  }
+}
