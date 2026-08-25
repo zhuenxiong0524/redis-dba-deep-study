@@ -1,7 +1,11 @@
 {
   "note": "RDB/AOF 触发时机实测（Redis 8.6.2:6379，2026-08-25）",
   "config": {
-    "save": ["3600 1", "300 100", "60 10000"],
+    "save": [
+      "3600 1",
+      "300 100",
+      "60 10000"
+    ],
     "appendonly": "yes",
     "appendfsync": "everysec",
     "auto-aof-rewrite-percentage": 100,
@@ -13,20 +17,58 @@
     "after_bgsave": 0,
     "meaning": "rdb_changes_since_last_save：距上次 save 的写变更次数，满足任一 save 条件即自动 BGSAVE"
   },
-  "bgsave": {"cmd": "BGSAVE", "rdb_last_bgsave_status": "ok", "rdb_last_save_time": "更新", "dump.rdb": "884B"},
-  "aof_append": {"cmd": "10 个 SET", "aof_current_size": "28347135 → 28347487 (+352B)", "meaning": "每条写命令实时追加到 AOF"},
-  "aof_rewrite": {"cmd": "BGREWRITEAOF", "result": "aof_current_size 28MB → 1KB；appendonlydir 生成 appendonly.aof.4.base.rdb + incr.aof + manifest", "meaning": "重写只保留最终状态，8.x 多部件原子切换"},
+  "bgsave": {
+    "cmd": "BGSAVE",
+    "rdb_last_bgsave_status": "ok",
+    "rdb_last_save_time": "更新",
+    "dump.rdb": "884B"
+  },
+  "aof_append": {
+    "cmd": "10 个 SET",
+    "aof_current_size": "28347135 → 28347487 (+352B)",
+    "meaning": "每条写命令实时追加到 AOF"
+  },
+  "aof_rewrite": {
+    "cmd": "BGREWRITEAOF",
+    "result": "aof_current_size 28MB → 1KB；appendonlydir 生成 appendonly.aof.4.base.rdb + incr.aof + manifest",
+    "meaning": "重写只保留最终状态，8.x 多部件原子切换"
+  },
   "auto_trigger_demo": {
     "setup": "CONFIG SET save \"1 10\"（临时：1 秒内 10 次变更触发）",
     "action": "写 12 个 key",
     "result": "2 秒后 rdb_changes_since_last_save=0、rdb_last_save_time 更新、status ok（自动 BGSAVE 触发）",
     "restore": "CONFIG SET save \"3600 1 300 100 60 10000\""
   },
-  "rdb_triggers": ["自动 save 条件（任一满足）", "手动 BGSAVE/SAVE", "主从全量同步发 RDB", "SHUTDOWN 默认落盘(nosave 跳过)"],
-  "aof_triggers": ["每条写命令追加（appendfsync 策略决定 fsync 时机）", "AOF 重写（增长超 100% 且 ≥32MB，或手动 BGREWRITEAOF）"],
+  "rdb_triggers": [
+    "自动 save 条件（任一满足）",
+    "手动 BGSAVE/SAVE",
+    "主从全量同步发 RDB",
+    "SHUTDOWN 默认落盘(nosave 跳过)"
+  ],
+  "aof_triggers": [
+    "每条写命令追加（appendfsync 策略决定 fsync 时机）",
+    "AOF 重写（增长超 100% 且 ≥32MB，或手动 BGREWRITEAOF）"
+  ],
   "mechanism": {
     "rdb": "满足条件 → fork 子进程(COW 写时复制) → 子进程序列化写 dump.rdb → 完成更新元数据(计数归0)",
     "aof": "写命令 → 内存 AOF buffer → 按 appendfsync 刷盘；重写=fork 生成新 base RDB + 增量，manifest 原子切换",
     "fork_cost": "fork 有耗时(latest_fork_usec)，大内存实例 fork 瞬间主线程阻塞"
+  },
+  "rdb_what_is": {
+    "definition": "RDB = Redis DataBase 二进制快照文件（dump.rdb），某时刻全库 key 最终状态的序列化",
+    "file_header": "0x52 0x45 0x44 0x49 0x53 = 'REDIS' magic + 版本 '0013'（8.6.2 用 RDB v13）",
+    "redis_check_rdb": {
+      "cmd": "redis-check-rdb /data/redis_new/data/dump.rdb",
+      "output": [
+        "AUX FIELD redis-ver=8.6.2 / redis-bits=64 / ctime=1787650748",
+        "72 keys read / 0 expires",
+        "Checksum OK / RDB looks OK"
+      ]
+    },
+    "rdb_vs_aof": {
+      "rdb": "快照：最终状态，二进制紧凑加载快，丢失窗口=两次保存之间",
+      "aof": "日志：写命令流，回放恢复，丢失窗口=fsync 策略",
+      "analogy": "照相机 vs 录像机"
+    }
   }
 }

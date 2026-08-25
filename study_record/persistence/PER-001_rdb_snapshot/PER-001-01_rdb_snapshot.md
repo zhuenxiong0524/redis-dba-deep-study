@@ -14,7 +14,55 @@
 
 ---
 
-## 1. RDB 触发时机（4 种）
+## 1. RDB 是什么？（先认识它）
+
+**RDB（Redis DataBase）是 Redis 的二进制快照文件（默认 `dump.rdb`）**：
+某个时间点**全库所有 key 的最终状态**的一次性序列化，二进制、紧凑。
+
+### 1.1 文件里有什么（实测解析）
+
+用 `xxd` 看文件头 + `redis-check-rdb` 解析（Redis 自带校验工具）：
+
+```text
+00000000: 5245 4449 5330 3031 33fa 0972 6564 6973   REDIS0013..redis
+          ^--- "REDIS" magic + RDB 版本 0013（8.6.2 用 RDB v13）
+```
+
+```bash
+redis-check-rdb /data/redis_new/data/dump.rdb
+```
+
+实测输出（截取）：
+
+```text
+[offset 26] AUX FIELD redis-ver = '8.6.2'     ← 元数据：生成版本
+[offset 40] AUX FIELD redis-bits = '64'
+[offset 52] AUX FIELD ctime = '1787650748'    ← 生成时间戳
+[offset 81] Selecting DB ID 15
+[info] 72 keys read                           ← 快照时刻全库的 key
+[info] 0 expires
+[offset 1231] Checksum OK                     ← 尾部校验和，损坏可检出
+[offset 1231] \o/ RDB looks OK! \o/
+```
+
+所以 RDB 内容 = **元数据（版本/时间/内存）+ 全库 key 的最终状态（key、value、类型、TTL）+ 校验和**。
+
+### 1.2 和 AOF 的本质区别（先建立直觉）
+
+| | RDB（dump.rdb） | AOF（appendonly.aof） |
+|---|---|---|
+| 本质 | **快照**：某一时刻的最终状态 | **日志**：所有写命令的流 |
+| 类比 | 照相机（瞬间定格） | 录像机（连续记录） |
+| 文件 | 二进制紧凑，加载快 | 文本命令流，文件大、加载要回放 |
+| 丢失窗口 | 两次保存之间的写会丢 | 取决于 fsync 策略（everysec 最多丢 1 秒） |
+| 用途 | 备份、主从全量、迁移 | 崩溃恢复更完整 |
+
+实测对照：`strings` 看 AOF 文件是 `SELECT / SET auto:key:1 / SET auto:key:2 ...` 的命令流；
+RDB 是解析后的 key 列表。**RDB 管"快照恢复快"，AOF 管"丢得少"**，8.x 默认两者都开（混合持久化，见 PER-002）。
+
+---
+
+## 2. RDB 触发时机（4 种）
 
 ### 1.1 自动 save 条件（本机实测配置）
 
@@ -47,7 +95,7 @@ CONFIG SET save "3600 1 300 100 60 10000"   # 恢复
 
 ---
 
-## 2. AOF 触发时机（简述，详见 PER-002）
+## 3. AOF 触发时机（简述，详见 PER-002）
 
 1. **每条写命令实时追加**：`appendfsync` 决定刷盘时机（本机 `everysec` 每秒 fsync；`always` 每条；`no` 交 OS）；
 2. **AOF 重写**：`auto-aof-rewrite-percentage 100` + `min-size 32MB`——文件增长翻倍且 ≥32MB 自动重写（或手动 `BGREWRITEAOF`）。
@@ -56,7 +104,7 @@ CONFIG SET save "3600 1 300 100 60 10000"   # 恢复
 
 ---
 
-## 3. 落盘前的前置步骤（机制）
+## 4. 落盘前的前置步骤（机制）
 
 ### 3.1 RDB/BGSAVE 流程
 
@@ -82,7 +130,7 @@ AOF 重写 → fork 子进程生成新 base RDB（当前最终状态）+ 记录�
 
 ---
 
-## 4. 阻塞分析速查
+## 5. 阻塞分析速查
 
 | 操作 | 阻塞？ | 说明 |
 |---|---|---|
@@ -96,7 +144,7 @@ AOF 重写 → fork 子进程生成新 base RDB（当前最终状态）+ 记录�
 
 ---
 
-## 5. 小结
+## 6. 小结
 
 - RDB 触发：自动 save 条件（3 条）、手动 BGSAVE/SAVE、主从全量、SHUTDOWN；
 - AOF 触发：每条命令追加（fsync 策略）+ 自动/手动重写；
