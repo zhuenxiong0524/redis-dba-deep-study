@@ -1,0 +1,24 @@
+{
+  "note": "--bigkeys 与 --memkeys 扫描实测（DB15 5 个 key）：--bigkeys 按元素数/字节数报 top，--memkeys 用 MEMORY USAGE 按字节报 top",
+  "bigkeys_output": {
+    "top": {
+      "list": "big:list 500000 items",
+      "hash": "big:hash 100000 fields",
+      "string": "big:str 10000000 bytes",
+      "set": "big:set 300000 members",
+      "zset": "big:zset 200000 members"
+    },
+    "sampled": "5 keys, total key length 38 bytes"
+  },
+  "memkeys_output": {
+    "top": {
+      "set": "15780439 bytes",
+      "zset": "15020440 bytes",
+      "str": "10485792 bytes",
+      "hash": "5750742 bytes",
+      "list": "2477285 bytes"
+    },
+    "sampled": "5 keys"
+  },
+  "difference": "--bigkeys 直观(元素数/字节)，--memkeys 更接近真实内存；--bigkeys 对 string 报字节数，对集合报元素数（元素大小差异会误导）"
+}

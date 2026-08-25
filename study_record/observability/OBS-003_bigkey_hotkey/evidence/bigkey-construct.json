@@ -1,0 +1,44 @@
+{
+  "note": "五类型大 key 构造与内存度量（Redis 8.6.2，DB15 隔离库；MEMORY USAGE/DEBUG OBJECT/INFO keysizes）",
+  "construction": {
+    "big:str": "SET 10MB 字符串（head -c 10000000 /dev/zero | tr）",
+    "big:hash": "EVAL 循环 HSET 10 万字段",
+    "big:list": "EVAL 循环 RPUSH 50 万元素",
+    "big:set": "EVAL 循环 SADD 30 万元素",
+    "big:zset": "EVAL 循环 ZADD 20 万成员(score=member)"
+  },
+  "memory_usage_bytes": {
+    "big:str": 10485792,
+    "big:hash": 5750742,
+    "big:list": 2477285,
+    "big:set": 15780439,
+    "big:zset": 15020440
+  },
+  "encoding": {
+    "big:str": "raw",
+    "big:hash": "hashtable",
+    "big:list": "quicklist",
+    "big:set": "hashtable",
+    "big:zset": "skiplist"
+  },
+  "debug_object_serializedlength": {
+    "big:str": 113654,
+    "big:hash": 1377795,
+    "big:list": 1999292,
+    "big:set": 1434344,
+    "big:zset": 2534344
+  },
+  "keysizes_distribution": {
+    "strings_sizes": "8M=1",
+    "lists_items": "256K=1",
+    "sets_items": "256K=1",
+    "zsets_items": "128K=1",
+    "hashes_items": "64K=1",
+    "lists_sizes": "2M=1",
+    "sets_sizes": "8M=1",
+    "zsets_sizes": "8M=1",
+    "hashes_sizes": "4M=1"
+  },
+  "note_memory_usage_sample": "8.6.2 MEMORY USAGE 已不支持 SAMPLE 参数（语法错误），直接返回完整估算",
+  "insight": "内存占用排序：set(15.8MB) > zset(15.0MB) > str(10.5MB) > hash(5.7MB) > list(2.4MB)；set/zset 的 dict 部分开销大"
+}

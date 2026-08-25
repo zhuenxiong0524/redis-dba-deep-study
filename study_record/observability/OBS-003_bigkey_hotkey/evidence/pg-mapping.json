@@ -1,0 +1,30 @@
+{
+  "note": "大 key/热 key 的 PG 对照（PG 18.4）",
+  "mapping": [
+    {
+      "redis": "MEMORY USAGE key / DEBUG OBJECT",
+      "pg": "pg_column_size / pg_relation_size / pg_total_relation_size",
+      "说明": "单值/单表大小度量"
+    },
+    {
+      "redis": "INFO keysizes 分布(8.x)",
+      "pg": "pg_stats 直方图 / pg_relation_size 按表排序",
+      "说明": "大小分布视角"
+    },
+    {
+      "redis": "--bigkeys/--memkeys 扫描",
+      "pg": "查询 pg_class.reltuples 找大表 / 大字段(TOAST)排查",
+      "说明": "例行体检手段"
+    },
+    {
+      "redis": "大 key 删除阻塞(单线程)",
+      "pg": "大表 DROP/VACUUM FULL 长时间锁表",
+      "说明": "结构越大维护越贵"
+    },
+    {
+      "redis": "热 key(HOTKEYS/--hotkeys)",
+      "pg": "pg_stat_user_tables seq_scan/idx_scan 热表 + 慢查询频次",
+      "说明": "访问频次视角"
+    }
+  ]
+}

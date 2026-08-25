@@ -1,0 +1,34 @@
+{
+  "note": "大 key 危害实测（DB15）：单条 DEL 阻塞 vs 分批删除；GET 10MB 传输耗时",
+  "del_blocking_slowlog": [
+    {
+      "command": "DEL big:set(30万成员 hashtable)",
+      "duration_us": 135642,
+      "block_ms": 135.6
+    },
+    {
+      "command": "DEL big:zset(20万 skiplist)",
+      "duration_us": 71832,
+      "block_ms": 71.8
+    },
+    {
+      "command": "DEL big:hash(10万字段)",
+      "duration_us": 52994,
+      "block_ms": 53.0
+    },
+    {
+      "command": "DEL big:list(50万 quicklist)",
+      "duration_us": 0,
+      "block_ms": 4,
+      "note": "quicklist 释放快，未进 SLOWLOG(1ms 阈值)"
+    }
+  ],
+  "get_10mb_cost_ms": 37,
+  "batch_delete": {
+    "method": "SSCAN COUNT 1000 + SREM 每批 1000，300 批删完 30 万成员",
+    "total_ms": 4932,
+    "slowlog_entries": 232,
+    "interpretation": "每批 1-2ms 微停顿(无感)，vs 单条 DEL 一次卡 135ms；生产阈值 10ms 时这些批操作不会进 SLOWLOG；分批删除把长时间阻塞拆成多次短停顿，对单线程服务友好"
+  },
+  "impact": "单条大命令执行期间 Redis 单线程被占用，其他所有命令排队；删除/迁移大 key 是高危操作"
+}

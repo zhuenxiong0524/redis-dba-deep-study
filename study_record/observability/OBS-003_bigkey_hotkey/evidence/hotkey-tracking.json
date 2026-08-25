@@ -1,0 +1,29 @@
+{
+  "note": "热 key 追踪实测（Redis 8.6.2）：8.x 新命令组 HOTKEYS START/GET/STOP（按 CPU/NET 追踪，不依赖淘汰策略）+ 老式 redis-cli --hotkeys（需 *lfu 策略）",
+  "hotkeys_command": {
+    "start": "HOTKEYS START METRICS 2 CPU NET COUNT 5 DURATION 60 → OK",
+    "load": "pipeline 30 万次 GET hot:key + 3 千次 GET cold:key",
+    "get_result": {
+      "by-cpu-time-us": {
+        "hot:key": 189565,
+        "cold:key": 1865
+      },
+      "by-net-bytes": {
+        "hot:key": 7200000,
+        "cold:key": 75000
+      },
+      "collection-duration-ms": 5470
+    },
+    "stop": "HOTKEYS STOP → OK"
+  },
+  "old_hotkeys_cli": {
+    "prereq": "maxmemory-policy 必须为 *lfu（本实例默认 volatile-lru，运行时 CONFIG SET allkeys-lfu 后可用，测完恢复）",
+    "load": "LFU 开启后 5 万次 GET hot:key",
+    "object_freq": {
+      "hot:key": 115,
+      "cold:key": 0
+    },
+    "result": "Hot key hot:key counter 115"
+  },
+  "usage": "8.x 生产建议用 HOTKEYS 命令组（按 CPU/网络字节定位真热点）；--hotkeys 需 LFU 策略，适合已用 lfu 淘汰的实例"
+}
