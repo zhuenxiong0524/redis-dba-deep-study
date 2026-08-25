@@ -1,0 +1,13 @@
+{
+  "note": "MEM-001 淘汰风暴实测（Redis 8.6.2 临时实例 6391，allkeys-lru，maxmemory=4MB）",
+  "load": "redis-benchmark SET -n 200000 -d 50 -c 20 -r 100000",
+  "evicted_before": 584508,
+  "evicted_after": 707415,
+  "evicted_this_run": 122907,
+  "dbsize_after": 26916,
+  "used_memory": "4157496B（3.96M，钉在 maxmemory）",
+  "set_rps": 25179.4,
+  "set_p50_ms": 0.647,
+  "ping_latency_during_storm": { "min_ms": 0, "max_ms": 3, "avg_ms": 0.74, "samples": 87 },
+  "conclusion": "写入持续成功（淘汰腾内存），evicted_keys 飙升=淘汰风暴；淘汰同步但按时间片限流，PING 抖动可控"
+}

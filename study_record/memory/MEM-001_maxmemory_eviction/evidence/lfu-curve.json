@@ -1,0 +1,6 @@
+{
+  "note": "MEM-001 LFU 计数器对数增长曲线（lfu-log-factor=10，初始值5）",
+  "curve": { "1": 6, "10": 7, "100": 10, "300": 14, "1000": 17, "5000": 41 },
+  "config": { "lfu-log-factor": 10, "lfu-decay-time": 1 },
+  "conclusion": "访问次数指数级增加、计数仅线性增长 → 高频 key 不会立刻打满 255，低频 key 有区分度"
+}

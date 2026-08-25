@@ -1,0 +1,29 @@
+{
+  "note": "MEM-001 淘汰机制源码取证（Redis 8.6.2，/data/redis_pkg/redis-stable/src）",
+  "trigger": {
+    "performEvictions": { "file": "evict.c:532", "detail": "命令执行路径中内存超 maxmemory 时同步触发；noeviction 直接返回 EVICT_FAIL（命令报 OOM）" },
+    "time_limit": { "detail": "每轮淘汰有 evictionTimeLimitUs 时间上限（evict.c），避免单命令无限阻塞" }
+  },
+  "pool_sampling": {
+    "evictionPoolPopulate": { "file": "evict.c:134", "detail": "每个 dict 随机采样 maxmemory_samples（默认 5）个 key，按 idle 分数插入全局淘汰池（EVPOOL_SIZE=10），取最优候选" },
+    "score_by_policy": {
+      "LRU/LRM": "estimateObjectIdleTime(kv)（evict.c:75：lru 时钟差 ×1000ms）",
+      "LFU": "255 - LFUDecrAndReturn(kv)（低频优先）",
+      "VOLATILE_TTL": "ULLONG_MAX - kvobjGetExpire(kv)（先过期者优先）"
+    },
+    "sample_source": { "volatile_*": "db->expires（仅带 TTL 的 key）", "allkeys_*": "db->keys（全部 key）" }
+  },
+  "policies_8x": {
+    "file": "config.c:39-48",
+    "list": ["volatile-lru","volatile-lfu","volatile-random","volatile-ttl","volatile-lrm","allkeys-lru","allkeys-lfu","allkeys-random","allkeys-lrm","noeviction"]
+  },
+  "lrm_new_in_8x": {
+    "updateLRM": { "file": "db.c:61", "detail": "仅写（修改）时更新 lru 时间戳（keyModified/dbAdd 路径）" },
+    "reads": { "file": "db.c:315-316", "detail": "LRM 策略下读取不更新时间戳 → 读热但久未写的 key 会被优先淘汰" }
+  },
+  "lfu": {
+    "LFULogIncr": { "file": "evict.c:281", "detail": "对数概率递增：counter 越高越难再 +1（lfu-log-factor=10）" },
+    "LFUDecrAndReturn": { "file": "evict.c:301", "detail": "按 lfu-decay-time（分钟）衰减计数" },
+    "init": "新 key 初始 freq=5（LFU_INIT_VAL）"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "note": "MEM-001 淘汰策略对照实验（Redis 8.6.2 临时实例 6391，maxmemory 压力场景，2026-08-25）",
+  "noeviction": {
+    "setup": "maxmemory=1MB, policy=noeviction, 值200B",
+    "result": "第 747 个 key 报错：OOM command not allowed when used memory > 'maxmemory'",
+    "evicted_keys": 0,
+    "used_memory": "1048552B（钉在 1MB）",
+    "note": "used_memory_startup=705440B：maxmemory 含进程自身开销，1MB 里只有 ~240KB 给数据"
+  },
+  "allkeys_lru": {
+    "setup": "maxmemory=8MB, 插入 20 万 key(值50B) via --pipe",
+    "evicted_keys": 134191,
+    "dbsize": 65598,
+    "survivors": "lru:k150000/200000 存活，k1/50000/100000 被淘汰 → 新 key 优先保留（近似 LRU）"
+  },
+  "volatile_lru": {
+    "setup": "maxmemory=8MB, 10 万带TTL + 5 万不带TTL",
+    "result": "无 TTL 的 nottl:k1/k50000 全部幸存（exists=2），TTL key 全部被淘汰 → 只碰 expires 字典"
+  },
+  "volatile_ttl": {
+    "setup": "5 万 TTL=60s + 5 万 TTL=3600s + 5 万无TTL，maxmemory=8MB",
+    "survivors": { "nottl": 50000, "t3600": 2027, "t60": 3 },
+    "conclusion": "先过期者优先淘汰：TTL=60s 的 key 几乎全被淘汰"
+  },
+  "allkeys_lfu": {
+    "setup": "32MB 插入 10 万 → 热 key 访问 300 次(FREQ=13) → 调低 8MB 触发淘汰",
+    "hot_k5000": { "exists": 1, "freq": 13 },
+    "cold_k90000": { "exists": 0, "freq": 5 },
+    "conclusion": "访问频次高的 key 受保护，冷 key 先淘汰"
+  },
+  "allkeys_lrm_8x_new": {
+    "setup": "32MB 插入 10 万 → 读热 k5000 300 次(不修改) + 写热 k100 重新 SET → 调低 8MB",
+    "read_hot_k5000": { "exists": 0, "meaning": "只读不保护，被淘汰" },
+    "write_hot_k100": { "exists": 1, "meaning": "最近修改过，幸存" },
+    "conclusion": "LRM=Least Recently Modified：读不更新时间戳，写才更新（db.c:61/315）"
+  }
+}

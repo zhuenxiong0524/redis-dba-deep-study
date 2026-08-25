@@ -33,4 +33,4 @@ study_record/
 
 ## 进度
 
-- 2026-08：ENV-001~003 / DAT-001~004 / OBS-001~004 / ENG-001 / PER-001~002 / ARC-001 已完成 16/25 项（详见 `study_record/completed/2026-08.md`）
+- 2026-08：ENV-001~003 / DAT-001~004 / OBS-001~004 / ENG-001 / PER-001~002 / ARC-001 已完成 17/25 项（详见 `study_record/completed/2026-08.md`）
