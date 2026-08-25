@@ -1,0 +1,28 @@
+{
+  "note": "REP-002 Sentinel 源码取证（Redis 8.6.2，/data/redis_pkg/redis-stable/src）",
+  "flags": {
+    "SRI_S_DOWN": { "file": "sentinel.c:47", "detail": "本 Sentinel 认为主库失联（主观下线，未达 quorum）" },
+    "SRI_O_DOWN": { "file": "sentinel.c:48", "detail": "客观下线：本节点 + 其他 Sentinel 确认数 >= quorum" }
+  },
+  "cron": {
+    "sentinelTimer": { "file": "sentinel.c", "detail": "每 100ms 运行；随机调整 hz 使各 Sentinel 错峰投票" },
+    "chain": "sentinelCheckMasterDown（S_DOWN）→ sentinelCheckObjectivelyDown（O_DOWN，sentinel.c）→ sentinelStartFailover"
+  },
+  "odown_quorum": {
+    "file": "sentinel.c sentinelCheckObjectivelyDown",
+    "detail": "quorum = 自己(1) + 其他标记 SRI_MASTER_DOWN 的 Sentinel 数；>= master->quorum 则 O_DOWN"
+  },
+  "failover": {
+    "election": "SENTINEL is-master-down-by-addr 互相拉票（+vote-for-leader）→ 得票最多者当选（+elected-leader）",
+    "state_machine": "try-failover → select-slave → selected-slave → promoted-slave（SLAVEOF NO ONE）→ reconf-slaves → failover-end → switch-master",
+    "epoch": "config-epoch 每次 failover +1，防止旧主回归抢主（+new-epoch）"
+  },
+  "defaults": {
+    "down-after-milliseconds": 30000,
+    "failover-timeout": 180000,
+    "parallel-syncs": 1
+  },
+  "recovery": {
+    "detail": "旧主恢复后 Sentinel 发现其上线，执行 REPLICAOF 新主（+convert-to-slave），并持续监控重配"
+  }
+}

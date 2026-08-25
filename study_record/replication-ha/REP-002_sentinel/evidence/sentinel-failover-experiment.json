@@ -1,0 +1,30 @@
+{
+  "note": "REP-002 故障转移全流程实验（Redis 8.6.2，1主2从+3哨兵，down-after=5s，quorum=2，2026-08-25）",
+  "topology": { "master": "127.0.0.1:6400（50k key）", "replicas": ["6401", "6402"], "sentinels": ["26379", "26380", "26381"] },
+  "steady_state": {
+    "sentinel_master": { "ip": "127.0.0.1", "port": 6400, "num-slaves": 2, "num-other-sentinels": 2, "quorum": 2 },
+    "client_discovery": "SENTINEL GET-MASTER-ADDR-BY-NAME mymaster → 127.0.0.1 6400"
+  },
+  "failover_sequence_leader_log": [
+    { "t": "23:17:28.822", "event": "+sdown master mymaster 127.0.0.1 6400", "note": "5 秒未收到 PING 回复 → 主观下线" },
+    { "t": "23:17:28.886", "event": "+odown master mymaster 127.0.0.1 6400 #quorum 2/2", "note": "客观下线（自己+1 个确认，达 quorum=2）" },
+    { "t": "23:17:28.887", "event": "+new-epoch 1" },
+    { "t": "23:17:28.887", "event": "+try-failover master mymaster 127.0.0.1 6400" },
+    { "t": "23:17:28.889", "event": "+vote-for-leader ... 1" },
+    { "t": "23:17:28.950", "event": "+elected-leader master mymaster" },
+    { "t": "23:17:29.013", "event": "+selected-slave slave 127.0.0.1:6401" },
+    { "t": "23:17:29.976", "event": "+promoted-slave slave 127.0.0.1:6401（SLAVEOF NO ONE）" },
+    { "t": "23:17:31.098", "event": "+failover-end / +switch-master mymaster 127.0.0.1 6400 → 127.0.0.1 6401", "note": "odown 到 switch-master 共 2.2s" }
+  ],
+  "after_failover": {
+    "new_master": "127.0.0.1:6401（config-epoch=1，num-slaves=2）",
+    "replica6402": "重新指向 6401（+slave-reconf-done）",
+    "write_test": "SET post-failover:key → 6402 GET 返回 value_ok",
+    "data_integrity": "6401 DBSIZE=50001（50k 全在）"
+  },
+  "old_master_recovery": {
+    "event": "+convert-to-slave slave 127.0.0.1:6400 @ mymaster 127.0.0.1 6401",
+    "result": "6400 role=slave, master_port=6401, master_link_status=up, GET post-failover:key=value_ok（追平故障期间写入）"
+  },
+  "conclusion": "kill 主库后 ~6s 判主观下线、~8s 完成切换（down-after=5s 配置下）；旧主回归自动降级为从库"
+}
