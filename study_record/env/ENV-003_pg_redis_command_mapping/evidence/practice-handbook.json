@@ -1,0 +1,55 @@
+{
+  "note": "Redis 可执行练习手册：五类型 + Key 通用命令实测输出（Redis 8.6.2，DB5）",
+  "string": {
+    "SET name Alice / GET name": ["OK", "Alice"],
+    "SET name Alice2 / GET name": ["OK", "Alice2", "覆盖写"],
+    "APPEND name ! / STRLEN name": [7, 7],
+    "SET counter 10 / INCR / INCRBY 5 / DECR": ["OK", 11, 16, 15],
+    "MSET site1 redis site2 pg / MGET": ["OK", ["redis", "pg"]],
+    "SETNX 已存在→0 / 不存在→1": [0, 1],
+    "EXPIRE 300 / TTL / PERSIST / TTL": [1, 300, 1, -1]
+  },
+  "hash": {
+    "HSET user:1 name Alice email alice@x.com age 30": 3,
+    "HGET / HMGET / HGETALL": ["Alice", ["Alice", "alice@x.com"], "4 个字段"],
+    "HLEN / HEXISTS": [4, 1],
+    "HSET 更新已有字段→0 / HGET": [0, 31],
+    "HINCRBY age 5": 36,
+    "HDEL city → 1": 1
+  },
+  "list": {
+    "RPUSH queue msg1 msg2 msg3": 3,
+    "LRANGE 0 -1 / 0 1 / LLEN": [["msg1", "msg2", "msg3"], ["msg1", "msg2"], 3],
+    "LPUSH msg0 → LRANGE": [4, ["msg0", "msg1", "msg2", "msg3"]],
+    "LPOP → msg0 / RPOP → msg3": ["msg0", "msg3"],
+    "LINDEX 0 / LTRIM 0 0": ["msg1", "OK"],
+    "BLPOP q2 3（有数据立即返回）/ 空队列 2s → nil": [["q2", "job1"], "(nil)"]
+  },
+  "set": {
+    "SADD tags:a redis mysql → 2 / SMEMBERS": [2, ["mysql", "redis"]],
+    "SISMEMBER / SCARD / SREM": [1, 2, 1],
+    "SINTER tags:a tags:b → mysql / SUNION / SDIFF": [["mysql"], ["mysql", "redis", "pg"], ["redis"]],
+    "SPOP / SADD 批量 1..5 / SCARD": ["redis", 5, 5]
+  },
+  "zset": {
+    "ZADD rank 100 p1 200 p2 150 p3 → 3 / ZCARD": [3, 3],
+    "ZSCORE p1 / ZRANGE 升序 / ZREVRANGE 降序": [100, ["p1", "p3", "p2"], ["p2", "p3", "p1"]],
+    "ZRANK p3=1 / ZREVRANK p3=1": [1, 1],
+    "ZRANGEBYSCORE 100 150 → p1,p3": ["p1", "p3"],
+    "ZINCRBY 50 p1 → 150 / ZREM p2 / ZCARD": [150, 1, 2]
+  },
+  "key_ops": {
+    "EXISTS / TYPE": [1, "zset"],
+    "OBJECT ENCODING": {"rank": "listpack", "user:1": "listpack", "counter": "int", "name(APPEND后)": "raw"},
+    "RENAME / COPY / GET": ["OK", 1, "Alice2!"],
+    "SCAN 0 MATCH user:*": ["user:1"],
+    "注意": "KEYS/CONFIG/FLUSHDB/FLUSHALL 在本实例被 rename-command 禁用"
+  },
+  "composite_demo": {
+    "用户整行": "HGETALL user:1 → name Alice age 30 ...",
+    "标签": "SMEMBERS user:1:tags → redis mysql",
+    "排行榜": "ZREVRANGE rank:202608 0 1 → user:1 user:3；ZREVRANK user:3 → 1",
+    "队列": "LPOP notify:1 → welcome",
+    "会话": "HSET sess:1001 ... + EXPIRE 600 → TTL 600"
+  }
+}
