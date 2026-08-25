@@ -1,0 +1,28 @@
+{
+  "note": "缓存穿透实验（Redis 8.6.2，DB15）：查询不存在的 key，绕过缓存直打 DB",
+  "phenomenon": {
+    "baseline": {
+      "keyspace_hits": 858337,
+      "keyspace_misses": 1
+    },
+    "after_100k_missing_get": {
+      "keyspace_hits": 858337,
+      "keyspace_misses": 100001
+    },
+    "hit_rate_drop": "99.9999% → 89.6%（10 万次不存在的 key 全部 miss）"
+  },
+  "remedy_null_cache": {
+    "cmd": "SET user:99999 \"\" EX 60",
+    "effect": "不存在的 key 缓存空值，再次 GET 命中，不再打 DB",
+    "ttl": 60
+  },
+  "remedy_bloom_filter": {
+    "impl": "Redis bitmap：SETBIT/GETBIT + 2 个 hash（crc32/md5 取模 100000）",
+    "write": "1000 个真实 ID 写入 bf:user（每个 ID 置 2 位）",
+    "result": {
+      "miss_positive": "已存在 ID 1-1000 漏报 0/1000",
+      "false_positive": "不存在 ID 1001-1200 误判 1/200 = 0.5%"
+    },
+    "feature": "布隆过滤器特征：绝不漏报（可能在）、可能误判；先查布隆拦截不存在请求，再决定是否打 DB"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "note": "缓存雪崩实验：1000 个 key 同一 TTL vs 随机 TTL 的过期集中度（INFO stats expired_keys 每秒采样）",
+  "same_ttl": {
+    "setup": "1000 key SET EX 5（同一 TTL）",
+    "expired_keys_timeline": "t=1..6s: 11(稳定) → t=7s: 1011（一秒内 +1000 集中过期）",
+    "conclusion": "1000 个 key 同一瞬间过期 = 雪崩：DB 瞬间收到 1000 个回源请求"
+  },
+  "random_ttl": {
+    "setup": "1000 key SET EX random(3,12)",
+    "expired_keys_timeline": "t=4s:1012 → t=6s:1180 → t=8s:1440 → t=10s:1662 → t=12s:1857 → t=13s:2011（+1000 分散在 9 秒窗口）",
+    "conclusion": "过期平滑分散，DB 回源压力被摊平"
+  },
+  "remedies": [
+    "TTL 随机化（基础±随机抖动）",
+    "多级缓存（本地+Redis）",
+    "限流/降级（回源加锁或降级返回）",
+    "热点续期（永不失效+异步刷新）"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "note": "缓存击穿实验：热点 key 过期瞬间并发重建（8 个客户端 × 3 轮，hot:item:1 每 2 秒过期）",
+  "no_lock": {
+    "rebuild_counts": [
+      8,
+      16,
+      24
+    ],
+    "interpretation": "8 个并发全部 miss 后都去重建（打 DB 8 倍）"
+  },
+  "mutex_lock": {
+    "correct_cmd": "SET lock:hot:item:1 <token> NX EX 5（原子抢锁+过期兜底）",
+    "rebuild_counts": [
+      1,
+      2,
+      3
+    ],
+    "interpretation": "每轮仅 1 个客户端重建缓存，其余等待/重试"
+  },
+  "pitfall": "SETNX 不支持 EX：SETNX lock:test v EX 5 实测报 ERR wrong number of arguments（SETNX 是旧命令）；现代写法必须是 SET key val NX EX n",
+  "pattern": "Cache-Aside + 互斥重建：GET miss → 抢锁 → 重建写缓存 → 释放锁（见 DAT-004 分布式锁联动）"
+}
