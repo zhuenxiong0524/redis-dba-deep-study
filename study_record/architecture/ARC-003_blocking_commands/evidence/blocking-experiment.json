@@ -1,0 +1,42 @@
+{
+  "note": "ARC-003 阻塞命令实测（Redis 8.6.2 临时实例 6394，50 万 key + 30 万元素 List/Set，2026-08-25）",
+  "dataset": { "keys": 500000, "list_blist": 300000, "set_bset": 300000, "used_memory": "47.09M" },
+  "server_cpu_time": {
+    "KEYS *": "~151-170ms/次（cmdstat 157,690µs/call）",
+    "SMEMBERS bset": "~70ms（cmdstat 69,870µs）",
+    "SORT blist": "~198-269ms（cmdstat 233,615µs）",
+    "LRANGE blist 0 -1": "~52ms（cmdstat 52,315µs）",
+    "SCAN 0 COUNT 1000": "~1.3ms（cmdstat 1,284µs）"
+  },
+  "client_side_wall_time": {
+    "KEYS *": "451ms（含 500k 行回复传输）",
+    "SMEMBERS": "283ms",
+    "SORT": "382ms",
+    "LRANGE": "226ms"
+  },
+  "blocking_impact_on_ping": {
+    "KEYS 期间": { "min_ms": 0, "avg_ms": 2.08, "max_ms": 153 },
+    "SORT 期间": { "min_ms": 0, "avg_ms": 3.97, "max_ms": 263 },
+    "正常基线": "max ~1-2ms"
+  },
+  "del_vs_unlink": {
+    "DEL 30万Set(hashtable)": "131ms（同步释放，阻塞事件循环）",
+    "UNLINK 30万Set": "11ms（异步，bio_lazy_free 后台释放）",
+    "note": "OBS-003 曾实测 10 万 List：DEL 155ms vs UNLINK 39ms；释放成本与元素个数/结构成正比"
+  },
+  "blpop_client_blocking": {
+    "test": "BLPOP q 0（无元素等待）+ 1s 后另一客户端 RPUSH",
+    "result": "BLPOP 约 1009ms 后返回元素（客户端阻塞）",
+    "ping_during_wait": { "min_ms": 0, "avg_ms": 0.14, "max_ms": 1 },
+    "conclusion": "BLPOP 阻塞的是客户端，服务端事件循环不受影响"
+  },
+  "slowlog_top": [
+    { "command": "SORT blist", "duration_usec": 268834 },
+    { "command": "SORT blist", "duration_usec": 198396 },
+    { "command": "KEYS *", "duration_usec": 169954 },
+    { "command": "KEYS *", "duration_usec": 151699 },
+    { "command": "KEYS *", "duration_usec": 151416 },
+    { "command": "DEL bset", "duration_usec": 127802 },
+    { "command": "LRANGE blist 0 -1", "duration_usec": 52315 }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "note": "ARC-003 阻塞命令源码取证（Redis 8.6.2，/data/redis_pkg/redis-stable/src）",
+  "server_blocking_commands": {
+    "keysCommand": { "file": "db.c:1544", "detail": "全键空间遍历，O(N)，把结果写进回复缓冲" },
+    "smembersCommand": { "file": "t_set.c:1558", "detail": "整个 set 序列化进回复，O(N)" },
+    "sortCommand": { "file": "sort.c:178/663", "detail": "O(N log N) 排序 + 临时分配" },
+    "delGenericCommand": { "file": "db.c:1377", "detail": "DEL=dbSyncDelete 同步释放；UNLINK=dbAsyncDelete 交给 bio_lazy_free（lazyfree）" }
+  },
+  "client_blocking_commands": {
+    "blpopCommand": { "file": "t_list.c:1359", "detail": "阻塞的是客户端（挂到等待队列），服务端事件循环继续跑；CMD_BLOCKING 标志（server.h:244）" }
+  },
+  "latency_tracking": {
+    "call()": { "file": "server.c:3830", "detail": "执行完记录 duration → slowlogPushCurrentCommand（慢日志）+ latencyAddSampleIfNeeded（fast-command/command 事件）+ commandstats" }
+  }
+}
