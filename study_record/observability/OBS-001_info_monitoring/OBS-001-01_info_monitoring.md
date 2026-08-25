@@ -3,7 +3,7 @@
 > Redis 8.6.2 / 127.0.0.1:6379 / 密码 123456
 >
 > 本文是"监控第一课"：**先学会让 Redis 自己"说话"（INFO），再谈监控系统**。
-> 所有数值均在本机实测（证据：`evidence/info-sections.json`、`benchmark.json`、`stat-output.json`、`pg-mapping.json`）。
+> 所有数值均在本机实测（证据：`evidence/info-sections.json`、`metrics-glossary.json`、`benchmark.json`、`stat-output.json`、`pg-mapping.json`）。
 
 ---
 
@@ -66,7 +66,63 @@ Keyspace / Keysizes
 
 ---
 
-## 3. 实战：负载前后指标变化（redis-benchmark）
+## 3. 关键指标含义与判断标准（初学者版）
+
+上表只说了"有哪些指标、实测多少"，这一节补上最重要的部分：**每个指标到底是什么意思、怎么判断好坏**。
+（完整速查表见证据 `evidence/metrics-glossary.json`。）
+
+### 3.1 Memory 区块：内存是 Redis 的命根子
+
+| 指标（单位） | 含义 | 怎么判断 |
+|---|---|---|
+| `used_memory`（字节） | 分配器实际使用的内存（数据+内部开销） | 核心水位指标：超过 `maxmemory` 的 **70%** 就要关注，逼近 100% 会触发淘汰 |
+| `used_memory_rss`（字节） | 操作系统看到的常驻内存（含 jemalloc 元数据与碎片） | 明显大于 `used_memory` = 碎片/分配器开销大 |
+| `used_memory_peak`（字节） | 历史最高水位（重启清零） | 比当前大很多 = 曾有大流量或大 key；用于规划要不要扩容 |
+| `maxmemory`（字节）+ `maxmemory_policy` | 内存上限；达到后按策略淘汰 key | 本机 `volatile-lru` = 只淘汰**带 TTL 的 key** 中最久未用的；若策略是 `noeviction`，内存满时写命令直接报错 |
+| `mem_fragmentation_ratio`（比值） | `used_memory_rss / used_memory`，内存碎片率 | 正常 **1.0~1.5**；>1.5 碎片偏高（本机 4.88 属偏高，多为 jemalloc 统计口径 + THP 透明大页影响，先看 rss 实际占用）；**<1 说明可能用了 swap，很危险** |
+
+> **心法：`evicted_keys` 只要 >0，就意味着内存已满、开始丢数据（按策略丢，可能丢热数据）。这是最高优先级告警。**
+
+### 3.2 Stats 区块：吞吐与命中（最常用）
+
+| 指标（单位） | 含义 | 怎么判断 |
+|---|---|---|
+| `total_commands_processed`（次） | 自启动累计处理的命令数（计数器） | 看**增量**：两次采样差值/秒 = 实际吞吐 |
+| `instantaneous_ops_per_sec`（次/秒） | 当前 1 秒内执行的命令数（瞬时 OPS） | 最直观的负载值（本机空闲=0，压测时 3.5 万~4 万）；与历史峰值对比判断是否突发 |
+| `keyspace_hits` / `keyspace_misses`（次） | key 命中/未命中累计 | 命中率 = `hits/(hits+misses)`；本机 170358/(170358+26)≈**99.98%** 健康；明显下降 = 过期、穿透或冷数据 |
+| `expired_keys`（次） | 累计被过期清理的 key 数 | 瞬间暴涨 = 大批 key 同时过期（**雪崩前兆**），检查 TTL 是否扎堆 |
+| `evicted_keys`（次） | 因 maxmemory 被淘汰驱逐的 key 数 | **>0 就必须处理**（本机=0）：扩容、优化 key、调淘汰策略 |
+| `total_net_input/output_bytes`（字节） | 累计网络入/出流量 | 增量反映带宽；配合瞬时 kbps 判断是否打满网卡 |
+| `rejected_connections`（次） | 因超过 maxclients 被拒绝的连接 | >0 = 连接数打满，客户端连不上，升 maxclients 或查连接泄漏 |
+
+### 3.3 Clients / Replication / Persistence / CPU / Errorstats
+
+| 区块 | 指标 | 含义 → 判断 |
+|---|---|---|
+| Clients | `connected_clients` | 当前连接数；接近 `maxclients=10000` 告警（先排除监控/压测连接） |
+| Clients | `blocked_clients` | 挂在 `BLPOP` 等阻塞命令上的客户端；持续上涨 = 队列积压，业务在排队 |
+| Clients | `client_recent_max_input/output_buffer` | 单连接最大缓冲；过大 = 有客户端发超大命令/读超大 key |
+| Replication | `role` / `connected_slaves` | 角色与已连从库数；从库少了 = 复制断链 |
+| Replication | `master_repl_offset`（主从偏移量） | 与从库 offset 的差值 = 复制延迟，持续拉大 = 从库落后 |
+| Persistence | `rdb_last_bgsave_status` / `aof_last_write_status` | 最近一次落盘结果；`err` = 落盘失败，立刻查磁盘/权限 |
+| Persistence | `latest_fork_usec`（微秒） | 最近一次 fork 耗时；fork 期间可能阻塞命令，本机 394us 正常，**秒级要查内存量与 THP** |
+| CPU | `used_cpu_sys/user`（秒） | 累计内核/用户态 CPU 时间；采样差值高 = CPU 忙，查慢命令、过期清理、持久化 |
+| Errorstats | `ERR / WRONGTYPE / NOAUTH / WRONGPASS / EXECABORT`（次） | 按错误码聚合的错误计数：`WRONGTYPE` = 对错误类型做操作（业务 bug）；`NOAUTH/WRONGPASS` = 认证失败（配置错或攻击）；`EXECABORT` = 事务被取消；`ERR` = 参数/用法错误（本机 ERR=29） |
+| Keyspace | `keys / expires / avg_ttl` | 各库 key 总数 / 带 TTL 的 key 数 / 平均剩余 TTL；`keys` 突增突降 = 批量写入或大 key 删除；`avg_ttl` 归零 = 全部要过期 |
+
+### 3.4 新手 5 个"一看就懂"的红线
+
+```text
+1. evicted_keys > 0            → 内存已满，正在丢数据（最高优先级）
+2. used_memory 逼近 maxmemory  → 内存告警，准备扩容/瘦身
+3. mem_fragmentation_ratio>1.5 → 碎片偏高，评估重启/调 jemalloc
+4. keyspace 命中率明显下降     → 缓存失效/穿透，业务受影响
+5. latest_fork_usec 达秒级     → fork 阻塞风险，查 THP 与内存量
+```
+
+---
+
+## 4. 实战：负载前后指标变化（redis-benchmark）
 
 空跑 INFO 只能看到"静态基线"，真正的监控价值是**对比**。用压测制造负载，看指标怎么动：
 
@@ -102,7 +158,7 @@ instantaneous_ops_per_sec: 压测中约 35,000～40,000，空闲归 0
 
 ---
 
-## 4. redis-cli --stat：一行一个时刻的"轻量监控"
+## 5. redis-cli --stat：一行一个时刻的"轻量监控"
 
 不想进交互模式、只想看动态趋势？`--stat` 每秒打印一行采样：
 
@@ -130,7 +186,7 @@ keys       mem      clients blocked requests            connections
 
 ---
 
-## 5. 与 PG 监控指标对照（双数据库统一口径）
+## 6. 与 PG 监控指标对照（双数据库统一口径）
 
 | Redis（INFO） | PG（18.4 对应视图） | 说明 |
 |---|---|---|
@@ -147,9 +203,10 @@ keys       mem      clients blocked requests            connections
 
 ---
 
-## 6. 小结
+## 7. 小结
 
 - INFO 一次返回 **14 个区块**（8.x 在 7.x 基础上新增 Hotkeys / Keysizes），按需取块、盯住 Memory / Stats / Replication 三个核心；
+- 指标含义速查：内存看 `used_memory/maxmemory/evicted_keys/碎片率`，吞吐看 `total_commands/instantaneous_ops`，健康看 `命中率/复制偏移量/落盘状态`，红线是 **`evicted_keys>0`、内存逼近上限、碎片率>1.5、命中率下降、fork 秒级**；
 - 压测对比证实：`total_commands_processed`、`keyspace_hits`、网络字节数与 OPS 同步反映负载，**监控要读变化量而非单点值**；
 - `redis-cli --stat` 每秒一行，适合快速体检；CONFIG 被禁用的实例会打印警告行，属预期；
 - 与 PG 对照后，两边监控口径可统一：吞吐↔`pg_stat_database`、命中↔`pg_statio_*`、连接↔`pg_stat_activity`、复制↔`pg_stat_replication`。

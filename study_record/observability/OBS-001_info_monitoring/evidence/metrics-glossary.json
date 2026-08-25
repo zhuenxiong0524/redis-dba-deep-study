@@ -1,0 +1,177 @@
+{
+  "note": "INFO 关键指标含义与判断速查（初学者版）：指标=是什么，判断=正常/异常怎么看，均结合 127.0.0.1:6379 实测值",
+  "memory": [
+    {
+      "metric": "used_memory",
+      "unit": "字节",
+      "meaning": "Redis 分配器实际使用的内存（数据+内部开销）",
+      "judge": "核心水位指标；超过 maxmemory 的 70% 就要关注，接近 100% 触发淘汰"
+    },
+    {
+      "metric": "used_memory_rss",
+      "unit": "字节",
+      "meaning": "操作系统看到的常驻内存（含 jemalloc 元数据与碎片）",
+      "judge": "明显大于 used_memory 说明碎片/分配器开销大"
+    },
+    {
+      "metric": "used_memory_peak",
+      "unit": "字节",
+      "meaning": "历史最高 used_memory（重启清零）",
+      "judge": "比当前大很多说明曾有大流量或大 key，用于规划容量"
+    },
+    {
+      "metric": "maxmemory",
+      "unit": "字节",
+      "meaning": "内存上限，达到后按 maxmemory_policy 淘汰 key",
+      "judge": "used_memory 持续逼近它=内存告警，需要扩容/优化 key"
+    },
+    {
+      "metric": "maxmemory_policy",
+      "unit": "策略名",
+      "meaning": "淘汰策略，本机 volatile-lru=只淘汰带 TTL 的 key 中最久未用",
+      "judge": "noeviction 时内存满写不进新 key 直接报错；volatile-* 系对不带 TTL 的 key 无效"
+    },
+    {
+      "metric": "mem_fragmentation_ratio",
+      "unit": "比值",
+      "meaning": "used_memory_rss / used_memory，衡量内存碎片",
+      "judge": "正常 1.0~1.5；>1.5 碎片偏高（本机 4.88 偏高，多为 jemalloc 统计口径+THP 影响，看 rss 实际占用）；<1 说明可能用了 swap，很危险"
+    }
+  ],
+  "stats": [
+    {
+      "metric": "total_commands_processed",
+      "unit": "次",
+      "meaning": "自启动累计处理的命令数（计数器）",
+      "judge": "看增量=吞吐；两次采样差值/秒即实际 OPS"
+    },
+    {
+      "metric": "instantaneous_ops_per_sec",
+      "unit": "次/秒",
+      "meaning": "当前 1 秒内执行命令数（瞬时 OPS）",
+      "judge": "最直观的负载值；与历史峰值对比判断是否突发（本机空闲=0，压测时 35000-40000）"
+    },
+    {
+      "metric": "keyspace_hits / keyspace_misses",
+      "unit": "次",
+      "meaning": "key 命中/未命中累计次数",
+      "judge": "命中率=hits/(hits+misses)；>99% 健康（本机 170358/26≈99.98%），明显下降=过期/穿透/冷数据"
+    },
+    {
+      "metric": "expired_keys",
+      "unit": "次",
+      "meaning": "累计被过期清理的 key 数",
+      "judge": "瞬间暴涨=大批 key 同时过期（雪崩前兆），检查 TTL 是否集中"
+    },
+    {
+      "metric": "evicted_keys",
+      "unit": "次",
+      "meaning": "因 maxmemory 被淘汰驱逐的 key 数",
+      "judge": ">0 说明内存已满开始丢数据（按策略丢，可能丢热数据），必须处理；本机=0"
+    },
+    {
+      "metric": "total_net_input_bytes / total_net_output_bytes",
+      "unit": "字节",
+      "meaning": "累计网络入/出流量",
+      "judge": "增量反映带宽占用；配合瞬时 kbps 判断是否打满网卡"
+    },
+    {
+      "metric": "rejected_connections",
+      "unit": "次",
+      "meaning": "因超过 maxclients 被拒绝的连接数",
+      "judge": ">0 = 连接数打满，客户端报连接失败，需升 maxclients 或查连接泄漏"
+    }
+  ],
+  "clients": [
+    {
+      "metric": "connected_clients",
+      "unit": "个",
+      "meaning": "当前活跃客户端连接数",
+      "judge": "接近 maxclients(10000) 告警；排除监控/压测连接后才是真实占用（本机=2）"
+    },
+    {
+      "metric": "blocked_clients",
+      "unit": "个",
+      "meaning": "执行 BLPOP 等阻塞命令挂起的客户端",
+      "judge": "持续>0 且上涨=队列没数据积压，业务侧排队"
+    },
+    {
+      "metric": "client_recent_max_input_buffer / output_buffer",
+      "unit": "字节",
+      "meaning": "单连接最大输入/输出缓冲区",
+      "judge": "过大=有客户端发超大命令或读超大 key，容易被 OOM 或慢命令拖垮"
+    }
+  ],
+  "replication": [
+    {
+      "metric": "role",
+      "unit": "-",
+      "meaning": "本节点角色 master/slave",
+      "judge": "与预期不符=主从配置问题"
+    },
+    {
+      "metric": "connected_slaves",
+      "unit": "个",
+      "meaning": "已连接的从库数",
+      "judge": "应为配置的从库数，少了=复制断链"
+    },
+    {
+      "metric": "master_repl_offset / slave_repl_offset",
+      "unit": "字节",
+      "meaning": "主从复制偏移量",
+      "judge": "master 与 slave 的 offset 差值=复制延迟，持续拉大=从库落后"
+    }
+  ],
+  "persistence": [
+    {
+      "metric": "rdb_last_bgsave_status / aof_last_write_status",
+      "unit": "ok/err",
+      "meaning": "最近一次 RDB 保存/AOF 写入结果",
+      "judge": "err=落盘失败，立即查磁盘空间/权限，否则丢数据"
+    },
+    {
+      "metric": "rdb_bgsave_in_progress / aof_rewrite_in_progress",
+      "unit": "0/1",
+      "meaning": "是否正在执行后台保存/AOF 重写",
+      "judge": "长时间=1 查 IO；AOF 重写是 fork+大写入，监控期间延迟会波动"
+    },
+    {
+      "metric": "latest_fork_usec",
+      "unit": "微秒",
+      "meaning": "最近一次 fork() 耗时",
+      "judge": "fork 期间可能阻塞命令；本机 394us 正常，秒级要查内存量/THP 透明大页"
+    }
+  ],
+  "cpu": [
+    {
+      "metric": "used_cpu_sys / used_cpu_user",
+      "unit": "秒",
+      "meaning": "累计内核态/用户态 CPU 时间",
+      "judge": "两次采样差值高=CPU 忙；查慢命令/过期清理/持久化，本机空闲增量≈0"
+    }
+  ],
+  "errorstats": [
+    {
+      "metric": "ERR / WRONGTYPE / NOAUTH / WRONGPASS / EXECABORT",
+      "unit": "次",
+      "meaning": "按错误码聚合的客户端错误计数（8.x）",
+      "judge": "WRONGTYPE=对错误类型做操作（业务 bug）；NOAUTH/WRONGPASS=认证失败（配置错或攻击）；EXECABORT=事务被取消；ERR=参数/用法错误；本机 ERR=29 等"
+    }
+  ],
+  "keyspace": [
+    {
+      "metric": "keys / expires / avg_ttl",
+      "unit": "个/秒",
+      "meaning": "各逻辑库 key 总数 / 带 TTL 的 key 数 / 平均剩余 TTL",
+      "judge": "keys 突增突降=批量写入或大 key 删除；expires 占比高=缓存型；avg_ttl 归零=全部过期"
+    }
+  ],
+  "hotkeys_keysizes": [
+    {
+      "metric": "Hotkeys / Keysizes 区块",
+      "unit": "-",
+      "meaning": "8.0+ 热点 key 与 key 大小分布（默认空，需配置采样）",
+      "judge": "开启后用于大 key/热 key 治理，进入 OBS-003 专题"
+    }
+  ]
+}
