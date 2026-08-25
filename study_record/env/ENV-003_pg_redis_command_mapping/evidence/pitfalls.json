@@ -1,0 +1,24 @@
+{
+  "note": "新手易混淆/易错场景实测（Redis 8.6.2，DB5）",
+  "wrongtype": {"cmd": "GET 一个 Hash key(user:1)", "output": "WRONGTYPE Operation against a key holding the wrong kind of value", "提示": "先 TYPE key 确认类型再选命令"},
+  "nil_vs_error": {
+    "GET 不存在的 key": "(nil)——正常结果，表示没数据",
+    "INCR 非数字值(abc)": "ERR value is not an integer or out of range——命令错误"
+  },
+  "return_value_semantics": {
+    "HSET 新增字段": 1,
+    "HSET 更新已有字段": 0,
+    "SADD 新成员/重复成员": "2 / 0",
+    "SET": "OK（状态回复，不是数字）",
+    "DEL": "删除的 key 个数；删不存在的返回 0"
+  },
+  "case_sensitive": {"SET User:1 carol": "与 user:1 是不同 key", "结论": "命令名不区分大小写，key 名区分大小写"},
+  "expire_is_key_level": {"HSET sess:1 uid 1 + EXPIRE 300": "TTL=300", "结论": "过期作用于整个 key，Hash 的单个 field / ZSet 单个成员不能单独设 TTL（7.4+ subexpiry 除外）"},
+  "negative_index": {"LRANGE list 0 -1": "全部元素，-1=最后一个", "结论": "列表索引从 0 开始，-1 表示末尾"},
+  "zrank_zero_based": {"ZREVRANK rank p2(第一名)": 0, "结论": "Redis 排名从 0 开始，PG rank() 从 1 开始，容易差 1"},
+  "row_vs_key": {
+    "一行=一个key": "HSET user:1/2/3 是 3 行；SCAN MATCH 'user:*' 枚举整表",
+    "表=前缀集合": "没有表对象，只有共享前缀的 key 集合",
+    "一个key装多行": "ZSet/Set/List 一个 key 装多个成员（与 Hash 相反）"
+  }
+}

@@ -4,7 +4,7 @@
 >
 > 本手册是 ENV-003 的配套练习：每条命令都给了**可粘贴执行**的写法与**预期输出**，
 > 并标注对应的 PG 操作，方便你边敲边建立"PG 怎么写 → Redis 怎么写"的映射。
-> 所有输出均已在本机实测（证据 `evidence/practice-handbook.json`）。
+> 所有输出均已在本机实测（证据 `evidence/practice-handbook.json`、`pitfalls.json`）。
 
 ---
 
@@ -26,8 +26,8 @@ PONG
 ```
 
 - 本实例的 `KEYS / CONFIG / FLUSHDB / FLUSHALL` 已被 `rename-command` 禁用，
-  所以"看有哪些 key"用 `SCAN`，"清库"用 `DEL`（见 §8）；
-- 练习完统一清理命令见 §8，保持 DB5 干净。
+  所以"看有哪些 key"用 `SCAN`，"清库"用 `DEL`（见 §9）；
+- 练习完统一清理命令见 §9，保持 DB5 干净。
 
 ---
 
@@ -96,6 +96,40 @@ DEL user:1                  # 1（删整行；PG: DELETE FROM t_user WHERE id=1�
 ```
 
 > 练习完看 `OBJECT ENCODING user:1` → `listpack`（小 hash 的紧凑编码，DAT-001）。
+
+---
+
+## 2.5 重点理解：一行 = 一个 key，"表" = 前缀集合
+
+刚练完 Hash 你可能会问："`HSET user:1 ...` 这不就一行数据吗？"
+
+**对，一次 `HSET user:1` 就是一行。想多几行，就多建几个 key：**
+
+```text
+HSET user:1 name Alice age 30   # 第 1 行
+HSET user:2 name Bob   age 25   # 第 2 行
+HSET user:3 name Carol age 28   # 第 3 行
+
+SCAN 0 MATCH 'user:*'           # → user:1 user:2 user:3（这就是"整张表"）
+HGETALL user:2                  # → name Bob age 25（查第 2 行）
+```
+
+心智模型：
+
+| PG | Redis |
+| --- | --- |
+| `t_user` 表 | **所有 `user:` 前缀的 key 合起来**才是"表" |
+| `INSERT` 一行 | 一次 `HSET user:N ...` |
+| 主键 `id` | 拼进 key 名（`user:1` 的 `1`） |
+| "表"是独立对象 | **没有表对象**，只有共享前缀的 key |
+
+两个推论：
+
+1. **每一行是独立对象**：`user:1` 和 `user:2` 互不相干，各有自己的类型/编码/过期/内存；
+   字段可以不一样（`user:2` 没有 `email` 不会报错——没有建表约束）；
+2. **"一个 key 装多行"也存在**：Hash 是一行一个 key；但 ZSet/Set/List 相反——**一个 key 装很多成员**，
+   如排行榜 `ZADD rank 100 p1 200 p2 150 p3` 是 3 个成员共用一个 key。
+   选型口诀：**行多列少 → Hash（一行一个 key）；一行多条目 → List/Set/ZSet（一个 key 装一堆）**。
 
 ---
 
@@ -247,7 +281,83 @@ LPOP notify:1                       # 取用户1的一条站内信 → "welcome"
 
 ---
 
-## 8. 练习后清理
+## 8. 新手易混淆 / 易错点（全部实测）
+
+### 8.1 类型不匹配：用错命令直接报错
+
+```text
+HSET user:1 name Alice    # OK
+GET user:1                # WRONGTYPE Operation against a key holding the wrong kind of value
+```
+
+> 每个 key 有固定类型，`GET` 只能取 String。报错先 `TYPE key` 确认类型再选命令。
+
+### 8.2 (nil) 是"没数据"，(error) 才是"命令错了"
+
+```text
+GET notexist              # (nil)   ← 正常结果，等价 PG 查询无结果
+SET name abc              # OK
+INCR name                 # ERR value is not an integer or out of range  ← 命令错误
+```
+
+### 8.3 返回值含义：数字 ≠ OK
+
+| 命令 | 返回 | 含义 |
+| --- | --- | --- |
+| `SET k v` | `OK` | 状态回复 |
+| `HSET` 新增字段 | `1` | 新增的字段数 |
+| `HSET` 更新已有字段 | `0` | 字段已存在（只是覆盖） |
+| `SADD` 新成员 / 重复成员 | `2` / `0` | 实际新增的成员数 |
+| `DEL k` | `1` | 删除的 key 个数（删不存在的返回 0） |
+
+> 新手最懵的：`HSET` 更新为什么返回 0？——它返回的是"**新增**了多少"，不是"成功"。
+
+### 8.4 key 区分大小写，命令不区分
+
+```text
+SET User:1 carol          # 与 user:1 是两个完全不同的 key！
+GET user:1                # (nil)
+GET User:1                # "carol"
+```
+
+### 8.5 过期是"整 key 级"，不是字段/成员级
+
+```text
+HSET sess:1 uid 1         # OK
+EXPIRE sess:1 300         # 1（整个 sess:1 300 秒后消失）
+TTL sess:1                # 300
+```
+
+> 不能对 Hash 的单个 field、ZSet 的单个成员单独设 TTL（7.4+ 有 subexpiry 实验特性，一般别依赖）。
+> 想"字段级过期"就拆成独立 key。
+
+### 8.6 排名从 0 开始（PG 的 rank() 从 1 开始）
+
+```text
+ZADD rank 100 p1 200 p2 150 p3
+ZREVRANK rank p2          # 0 ← 第一名是 0！
+```
+
+> 展示给业务方时记得 +1，这是排行榜最常见的"差 1" bug 来源。
+
+### 8.7 列表负索引：-1 是最后一个
+
+```text
+RPUSH list a b c
+LRANGE list 0 -1          # a b c（取全部，-1=末尾）
+LRANGE list -2 -1         # b c（取最后两个）
+```
+
+### 8.8 再说一遍"行"：Hash 一行一个 key，ZSet/Set/List 一个 key 多行
+
+```text
+HSET user:1 ... / HSET user:2 ...   # 3 行 = 3 个 key
+ZADD rank 100 p1 200 p2 ...         # 3 个"行"共用一个 key rank
+```
+
+---
+
+## 9. 练习后清理
 
 ```text
 # 删除单个 key
@@ -263,7 +373,7 @@ DEL <列出来的 key...>
 
 ---
 
-## 9. 对照速记（本手册核心）
+## 10. 对照速记（本手册核心）
 
 | 想做的事 | PG | Redis 命令 |
 | --- | --- | --- |
@@ -278,10 +388,11 @@ DEL <列出来的 key...>
 | 枚举 key | `\dt` | `SCAN 0 MATCH 'prefix:*'` |
 | 清理 | `DELETE` | `DEL k` |
 
-## 10. 路径与证据
+## 11. 路径与证据
 
 ```text
 文章      study_record/env/ENV-003_pg_redis_command_mapping/ENV-003-02_redis_command_practice.md
 证据      evidence/practice-handbook.json（全部命令实测输出）
+          evidence/pitfalls.json（易错场景实测）
 实例      redis-cli -h 127.0.0.1 -p 6379 -a 123456 -n 5
 ```
