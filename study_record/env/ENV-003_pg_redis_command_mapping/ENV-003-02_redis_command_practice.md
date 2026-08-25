@@ -26,8 +26,8 @@ PONG
 ```
 
 - 本实例的 `KEYS / CONFIG / FLUSHDB / FLUSHALL` 已被 `rename-command` 禁用，
-  所以"看有哪些 key"用 `SCAN`，"清库"用 `DEL`（见 §9）；
-- 练习完统一清理命令见 §9，保持 DB5 干净。
+  所以"看有哪些 key"用 `SCAN`，"清库"用 `DEL`（见 §10）；
+- 练习完统一清理命令见 §10，保持 DB5 干净。
 
 ---
 
@@ -281,7 +281,125 @@ LPOP notify:1                       # 取用户1的一条站内信 → "welcome"
 
 ---
 
-## 8. 新手易混淆 / 易错点（全部实测）
+## 8. 看懂 Redis 命令：命名规律与参数含义
+
+### 8.1 命名规律：首字母 = 类型
+
+Redis 命令几乎都是"**类型首字母 + 操作**"：
+
+| 首字母 | 类型 | 例子 | 记忆 |
+| --- | --- | --- | --- |
+| `H` | Hash | `HSET` `HGET` `HGETALL` `HLEN` `HDEL` | Hash Set / Get / ... |
+| `L` | List | `LPUSH` `LPOP` `LRANGE` `LLEN` | List Push / Range / Length |
+| `S` | Set | `SADD` `SMEMBERS` `SINTER` `SCARD` | Set Add / Members / Intersection / CARDinality |
+| `Z` | ZSet | `ZADD` `ZRANGE` `ZSCORE` `ZCARD` | Z 开头专属（skiplist） |
+| `X` | Stream | `XADD` `XREAD` `XACK` | 流类型 |
+| （无） | String/通用 | `SET` `GET` `INCR` `DEL` `EXPIRE` | 最基础的一组 |
+
+其余字母=操作缩写：`GET`/`SET`/`ADD`/`REM`/`POP`/`PUSH`/`RANGE`/`LEN`/`CARD`/`EXISTS`/`INCR BY`...
+
+```text
+HGETALL  = Hash GET ALL           ← 取 Hash 全部字段
+LRANGE   = List RANGE             ← 取 List 一段范围
+SINTER   = Set INTERsection       ← 集合交集
+SUNION   = Set UNION              ← 集合并集
+SDIFF    = Set DIFFerence         ← 集合差集
+SISMEMBER= Set IS MEMBER          ← 是不是成员
+SCARD    = Set CARDinality        ← 基数=去重后数量
+ZREVRANGE= ZSet REVerse RANGE     ← 反向范围（降序）
+INCRBY   = INCRement BY           ← 加 N
+SETNX    = SET if Not eXists      ← 不存在才写
+BLPOP    = Blocking LPOP          ← 阻塞式弹出
+TTL      = Time To Live           ← 剩余存活时间
+```
+
+> 记住这个规律后，看到一个没见过的命令也能猜出七八分。
+
+### 8.2 参数约定：范围类命令（以 `LRANGE` 为例）
+
+```text
+LRANGE key start stop
+```
+
+- **索引从 0 开始**；
+- `start` 和 `stop` **都包含**（闭区间）：`LRANGE list 1 3` → 第 2、3、4 个元素；
+- **负数 = 从尾部数**：`-1` 最后一个，`-2` 倒数第二个；
+- 常用组合：
+
+| 写法 | 含义 | 等价场景 |
+| --- | --- | --- |
+| `LRANGE list 0 -1` | 全部元素 | `SELECT *` |
+| `LRANGE list 0 9` | 前 10 个 | `LIMIT 10` |
+| `LRANGE list 10 29` | 第 11~30 个 | `LIMIT 20 OFFSET 10`（分页） |
+| `LRANGE list -2 -1` | 最后 2 个 | 尾部元素 |
+
+实测：`RPUSH list a b c d e` 后，`LRANGE list 1 3` → `b c d`；`LRANGE list -2 -1` → `d e`。
+
+`ZRANGE` 的 `start stop` 也是同样的位置索引；**按分数取**用 `ZRANGEBYSCORE`，区间规则不同：
+
+```text
+ZRANGEBYSCORE rank min max
+100 150      # 默认闭区间，含 100 和 150
+(100 200     # ( 表示开区间，不含 100
+-inf +inf    # 全区间（不限定分数）
+```
+
+实测：`ZADD rank 100 p1 150 p3 200 p2`，`ZRANGEBYSCORE rank 100 150` → `p1 p3`；
+`(100 200` → `p3 p2`（100 被排除）。
+
+### 8.3 手册内全部命令拆解表
+
+| 命令 | 拆解 | 含义 / 参数 |
+| --- | --- | --- |
+| `SET k v` | SET | 写 String：k=键，v=值 |
+| `GET k` | GET | 读 String；不存在返回 `(nil)` |
+| `APPEND k v` | APPEND | 尾部追加，返回新长度 |
+| `STRLEN k` | STRing LENgth | 字符串字节数 |
+| `INCR k` / `INCRBY k n` | INCRement [BY] | +1 / +n（不存在当 0） |
+| `DECR k` | DECRemen | -1 |
+| `MSET/MGET` | Multi SET/GET | 批量写/读 |
+| `SETNX k v` | SET if Not eXists | 不存在才写；返回 0/1 |
+| `EXPIRE k s` / `TTL k` | EXPIRE / Time To Live | 设过期秒 / 查剩余秒 |
+| `PERSIST k` | PERSIST | 移除过期 |
+| `HSET k f v` | Hash SET | 写字段；返回**新增**字段数 |
+| `HGET k f` / `HMGET k f1 f2` | Hash GET [Multi] | 取单/多字段 |
+| `HGETALL k` | Hash GET ALL | 取全部字段 |
+| `HLEN k` | Hash LENgth | 字段数（不是行数！） |
+| `HEXISTS k f` | Hash EXISTS | 字段是否存在；0/1 |
+| `HINCRBY k f n` | Hash INCR BY | 字段值 +n |
+| `HDEL k f` | Hash DEL | 删字段 |
+| `RPUSH/LPUSH k v...` | Right/Left PUSH | 尾部/头部入队；返回新长度 |
+| `LPOP/RPOP k` | Left/Right POP | 头部/尾部取出（取出即删） |
+| `BLPOP k t` | Blocking LPOP | 阻塞弹出；t=超时秒，0=永远等 |
+| `LRANGE k s e` | List RANGE | 按位置范围取（闭区间、负索引） |
+| `LLEN k` | List LENgth | 列表长度 |
+| `LINDEX k i` | List INDEX | 按下标取单个 |
+| `LTRIM k s e` | List TRIM | 只保留范围，其余删 |
+| `SADD k m...` | Set ADD | 加成员；返回**新增**数（重复=0） |
+| `SMEMBERS k` | Set MEMBERS | 全部成员（无序） |
+| `SISMEMBER k m` | Set IS MEMBER | 是否成员；0/1 |
+| `SCARD k` | Set CARDinality | 成员数（基数） |
+| `SREM k m` | Set REMove | 删成员 |
+| `SINTER/SUNION/SDIFF` | Set INTER/UNION/DIFF | 交集/并集/差集 |
+| `SPOP k` | Set POP | 随机弹出一个成员 |
+| `ZADD k s m` | ZSet ADD | 加成员；s=score(分数)，m=member |
+| `ZSCORE k m` | ZSet SCORE | 查分数 |
+| `ZCARD k` | ZSet CARDinality | 成员数 |
+| `ZRANGE/ZREVRANGE k s e` | ZSet [REVerse] RANGE | 按位置升/降序取 |
+| `ZRANK/ZREVRANK k m` | ZSet [REVerse] RANK | 排名（从 0 开始） |
+| `ZRANGEBYSCORE k min max` | ZSet RANGE BY SCORE | 按分数区间取 |
+| `ZINCRBY k n m` | ZSet INCR BY | 分数 +n |
+| `ZREM k m` | ZSet REMove | 删成员 |
+| `TYPE k` / `OBJECT ENCODING k` | TYPE / OBJECT | 类型 / 内部编码 |
+| `EXISTS k` | EXISTS | key 是否存在；0/1 |
+| `DEL k...` | DELete | 删除；返回删除个数 |
+| `SCAN c MATCH p COUNT n` | SCAN | 增量遍历；c=游标(0结束)，MATCH=前缀模式 |
+| `RENAME/COPY k k2` | RENAME/COPY | 改名/复制 |
+
+---
+
+## 9. 新手易混淆 / 易错点（全部实测）
+
 
 ### 8.1 类型不匹配：用错命令直接报错
 
@@ -357,7 +475,7 @@ ZADD rank 100 p1 200 p2 ...         # 3 个"行"共用一个 key rank
 
 ---
 
-## 9. 练习后清理
+## 10. 练习后清理
 
 ```text
 # 删除单个 key
@@ -373,7 +491,7 @@ DEL <列出来的 key...>
 
 ---
 
-## 10. 对照速记（本手册核心）
+## 11. 对照速记（本手册核心）
 
 | 想做的事 | PG | Redis 命令 |
 | --- | --- | --- |
@@ -388,7 +506,7 @@ DEL <列出来的 key...>
 | 枚举 key | `\dt` | `SCAN 0 MATCH 'prefix:*'` |
 | 清理 | `DELETE` | `DEL k` |
 
-## 11. 路径与证据
+## 12. 路径与证据
 
 ```text
 文章      study_record/env/ENV-003_pg_redis_command_mapping/ENV-003-02_redis_command_practice.md
