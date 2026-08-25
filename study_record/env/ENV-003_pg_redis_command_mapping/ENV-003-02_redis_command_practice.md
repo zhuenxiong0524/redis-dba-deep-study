@@ -195,6 +195,37 @@ SCARD tags:big              # 5
 
 ## 5. ZSet：对标 PG 的排行榜 / TopN
 
+### 5.0 先看懂 ZADD 参数：score member 成对出现
+
+```text
+ZADD rank 100 p1 200 p2 150 p3
+      │    │  │  │  │  │  │  │
+      │    └──┴──┴──┴──┴──┴──┘
+      │        每两个一组：(score member)
+      │        (100 p1) (200 p2) (150 p3)
+      └── key 还是键名 = "排行榜"这张表
+```
+
+- key 依然是 `rank`；变的只是"值"的形态——ZSet 的值是**多个 `(score, member)` 二元组**；
+- `member` = 成员（相当于"行"的唯一标识，PG 的 `player` 列）；
+- `score` = 分数（相当于"排序列"的值，PG `ORDER BY` 的那一列）；
+- **顺序注意**：PG 写 `INSERT VALUES ('p1', 100)`（先 member 后 score），
+  Redis 写 `ZADD rank 100 p1`（**先 score 后 member**），方向相反容易记反；
+
+对照表：
+
+| PG | Redis |
+| --- | --- |
+| `CREATE TABLE t_rank(player, score)` | key `rank` = 表 |
+| `INSERT VALUES ('p1',100)` | `ZADD rank 100 p1` |
+| `player` 列 | `member` |
+| `score` 列 | `score` |
+| `ORDER BY score DESC` | `ZREVRANGE rank 0 -1` |
+| `UPDATE ... SET score=300 WHERE player='p1'` | `ZADD rank 300 p1`（同 member 即更新，返回 0） |
+
+> 速记：ZSet = **带分数的 Set**（`SADD tags m` 加成员；ZSet 每个成员前多放一个分数）。
+
+
 ```text
 # ---------- 插入（member + score） ----------
 ZADD rank 100 p1 200 p2 150 p3   # 3
