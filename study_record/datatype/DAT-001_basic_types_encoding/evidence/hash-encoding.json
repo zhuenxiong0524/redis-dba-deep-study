@@ -1,0 +1,15 @@
+{
+  "note": "Hash 编码实验：listpack → hashtable（Redis 8.6.2，DB5）",
+  "defaults_src": "redis.conf：hash-max-listpack-entries 512，hash-max-listpack-value 64（8.x 默认 entries=512，7.x 为 128）",
+  "cases": [
+    {"scenario": "100 个字段(小值)", "encoding": "listpack", "hlen": 100},
+    {"scenario": "700 个字段(小值)", "encoding": "hashtable", "hlen": 700},
+    {"scenario": "1 个字段但值 100B(>64)", "encoding": "hashtable", "note": "单个超长值即触发升级"}
+  ],
+  "one_way_conversion": {
+    "test": "700 字段 hashtable → HDEL 删到 10 字段",
+    "encoding_after_shrink": "hashtable",
+    "conclusion": "编码只升不降：删除元素不会回退到 listpack"
+  },
+  "empty_behavior": "hash 删空后 key 整体被删除（EXISTS=0）"
+}

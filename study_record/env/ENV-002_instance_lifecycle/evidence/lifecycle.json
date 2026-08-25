@@ -1,0 +1,31 @@
+{
+  "note": "实例生命周期实验：shutdown / SIGTERM / SIGKILL+恢复（实例 6380，Redis 8.6.2）",
+  "graceful_shutdown_log": [
+    "* User requested shutdown...",
+    "* Calling fsync() on the AOF file.",
+    "* Saving the final RDB snapshot before exiting.",
+    "* BGSAVE done, 0 keys saved, 0 keys skipped, 88 bytes written.",
+    "* DB saved on disk",
+    "* Removing the pid file.",
+    "# Redis is now ready to exit, bye bye..."
+  ],
+  "sigterm_log": "signal-handler (...) Received SIGTERM scheduling shutdown... -> User requested shutdown... -> ready to exit",
+  "sigkill_recovery": {
+    "kill_method": "kill -9",
+    "pre_crash_dbsize": 6,
+    "restart_log": [
+      "* DB loaded from base file appendonly.aof.1.base.rdb",
+      "* DB loaded from incr file appendonly.aof.1.incr.aof",
+      "* DB loaded from append only file",
+      "* Ready to accept connections tcp"
+    ],
+    "post_recovery_dbsize": 6,
+    "post_recovery_check": "crash:key:5 => value-5",
+    "conclusion": "appendfsync everysec 下 SIGKILL 后 AOF 完整恢复；最多可能丢失 1 秒写入"
+  },
+  "start_modes": [
+    "前台 redis-server conf --daemonize no",
+    "手动后台 --daemonize yes（仅实验）",
+    "systemd redis@<port>.service（推荐）"
+  ]
+}

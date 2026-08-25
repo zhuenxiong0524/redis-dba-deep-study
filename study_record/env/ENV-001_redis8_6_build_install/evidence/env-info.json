@@ -1,0 +1,47 @@
+{
+  "note": "Redis 8.6.2 学习实例环境信息（INFO 摘要）",
+  "server": {
+    "redis_version": "8.6.2",
+    "redis_git_sha1": "00000000",
+    "redis_git_dirty": "1",
+    "redis_build_id": "126f3c4486452d73",
+    "redis_mode": "standalone",
+    "os": "Linux 5.10.0-38-amd64 x86_64",
+    "arch_bits": "64",
+    "monotonic_clock": "POSIX clock_gettime",
+    "multiplexing_api": "epoll",
+    "atomicvar_api": "c11-builtin",
+    "gcc_version": "10.2.1",
+    "process_id": "2111",
+    "process_supervised": "no",
+    "run_id": "620917813a7c86e127c40b08df93eebcd0617782",
+    "tcp_port": "6379",
+    "server_time_usec": "1787629341999765",
+    "uptime_in_seconds": "15",
+    "uptime_in_days": "0",
+    "hz": "10",
+    "configured_hz": "10",
+    "lru_clock": "9244445",
+    "executable": "/usr/local/bin/redis-server",
+    "config_file": "/data/redis/conf/redis.conf",
+    "io_threads_active": "0",
+    "listener0": "name=tcp,bind=0.0.0.0,port=6379"
+  },
+  "memory_key": {
+    "used_memory": "821368",
+    "used_memory_human": "802.12K",
+    "used_memory_rss": "15859712",
+    "maxmemory": "1342177280",
+    "maxmemory_policy": "volatile-lru",
+    "mem_fragmentation_ratio": "19.75",
+    "mem_allocator": "jemalloc-5.3.0"
+  },
+  "persistence_key": {
+    "aof_enabled": "1",
+    "aof_rewrites": "0",
+    "rdb_last_save_time": "1787629326",
+    "rdb_changes_since_last_save": "11",
+    "aof_current_size": "550",
+    "aof_base_size": "88"
+  }
+}

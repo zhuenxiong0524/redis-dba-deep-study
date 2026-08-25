@@ -1,0 +1,9 @@
+{
+  "note": "过期元数据内存开销（Redis 8.6.2 kvobj）",
+  "same_key_value_compare": {
+    "SET dat003:meta:nonexp samevalue123": "MEMORY USAGE 56B",
+    "SET dat003:meta:exp samevalue123 EX 3600": "MEMORY USAGE 64B",
+    "delta": "+8B（kvobj 元数据块中一个 uint64 过期时间戳）"
+  },
+  "源码": "object.h kvobj 布局：meta 块（每类 8B，class0=过期时间，KEY_META_MASK_EXPIRE）；object.c kvobjSetExpire/kvobjMetaRef"
+}

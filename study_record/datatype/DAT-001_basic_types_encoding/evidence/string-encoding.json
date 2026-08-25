@@ -1,0 +1,25 @@
+{
+  "note": "String 编码实验：int / embstr / raw 判定（Redis 8.6.2，DB5）",
+  "version_behavior": "Redis 8.x kvobj：值内联与否取决于 key+value 总和是否放入 64B 缓存行",
+  "int_encoding": {
+    "SET dat001:str:int 12345": "int",
+    "INCR 后": "int (value=12346)",
+    "非规范数字 '0012345'": "embstr（string2l 拒绝前导零，不转 int）"
+  },
+  "embstr_raw_boundary": {
+    "rule_src": "object.c kvobjSet(): size=sizeof(kvobj)+keylen+3+4+len <= CACHE_LINE_SIZE(64) 时内联为 embstr",
+    "threshold": "keylen + valuelen <= 41 → embstr；>= 42 → raw（旧版 Redis<=7 为固定 value<=44）",
+    "cases": [
+      {"key": "k", "val_len": 40, "total": 41, "encoding": "embstr", "usage": 64},
+      {"key": "k", "val_len": 42, "total": 43, "encoding": "raw"},
+      {"key": "dat001:str:v25", "key_len": 14, "val_len": 25, "total": 39, "encoding": "embstr"},
+      {"key": "dat001:str:v44", "key_len": 14, "val_len": 44, "total": 58, "encoding": "raw"},
+      {"key_len": 24, "val_len": 20, "total": 44, "encoding": "raw"}
+    ],
+    "with_expire": "SET k v EX 300：过期元数据(+8B)不影响 embstr 判定（28B 值+14B key=42 → raw）"
+  },
+  "shared_integers": {
+    "rule_src": "object.c createStringObjectFromLongLongForValue：maxmemory 启用 LRU/LFU 策略时不使用共享整数",
+    "observed": "本实例 maxmemory=1280mb volatile-lru，SET a 5 → OBJECT REFCOUNT=1（非共享）"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "note": "惰性删除实验（Redis 8.6.2，DB5）",
+  "case1_key_expires_without_access": {
+    "SET + PEXPIRE 200ms": null,
+    "500ms 后未访问": "EXISTS=0（已被删除：可能为 GET/EXISTS 访问时惰性删除或主动周期提前清理）"
+  },
+  "case2_get_triggered": {
+    "SET + PEXPIRE 100ms + sleep 300ms": null,
+    "GET 过期 key": "nil",
+    "EXISTS": 0,
+    "结论": "过期 key 在被访问（lookupKeyRead → expireIfNeeded）时同步删除并返回 KEY_DELETED，调用方按不存在处理"
+  },
+  "源码路径": "db.c lookupKey* → expireIfNeeded → keyIsExpired(now > expire) → deleteExpiredKeyAndPropagate；统计 stat_expiredkeys"
+}

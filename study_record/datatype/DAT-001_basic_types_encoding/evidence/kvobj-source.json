@@ -1,0 +1,31 @@
+{
+  "note": "源码取证：Redis 8.x kvobj 内联存储（object.c / object.h / config.h）",
+  "kvobj_set_logic": {
+    "file": "src/object.c",
+    "function": "kvobjSet",
+    "condition": "val->type==OBJ_STRING && val->encoding==OBJ_ENCODING_EMBSTR 且 size=sizeof(kvobj)+keylen+3+4+len <= CACHE_LINE_SIZE 时 kvobjCreateEmbedString，否则 kvobjCreate+raw sds",
+    "impact": "OBJECT ENCODING 的 embstr/raw 判定依赖 key+value 组合大小而非仅 value 长度"
+  },
+  "cache_line_size": {"file": "src/config.h", "value": 64, "note": "x86_64 为 64B，aarch64/Apple 为 128B"},
+  "kvobj_layout": {
+    "file": "src/object.h",
+    "struct": "redisObject (iskvobj=1)",
+    "layout": "meta 块(可选,每类8B) + robj(16B) + key-sds-header(1B) + key + value-sds(内联,SDSTYPE8)",
+    "encoding_when_not_embedded": "OBJ_ENCODING_RAW（值单独分配 sds）"
+  },
+  "embstr_legacy_limit": {
+    "file": "src/object.c",
+    "define": "OBJ_ENCODING_EMBSTR_SIZE_LIMIT 44",
+    "note": "tryObjectEncoding 仍按 44 字节判 embstr，但落库时 kvobjSet 可能降级为 raw"
+  },
+  "aggregate_defaults_redis86": {
+    "hash-max-listpack-entries": 512,
+    "hash-max-listpack-value": 64,
+    "list-max-listpack-size": -2,
+    "set-max-intset-entries": 512,
+    "set-max-listpack-entries": 128,
+    "set-max-listpack-value": 64,
+    "zset-max-listpack-entries": 128,
+    "zset-max-listpack-value": 64
+  }
+}

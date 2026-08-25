@@ -1,0 +1,29 @@
+{
+  "note": "源码取证：过期与删除机制（Redis 8.6.2）",
+  "lazy_delete": {
+    "file": "src/db.c",
+    "function": "expireIfNeeded (L2905)",
+    "logic": "keyIsExpired → now > when → deleteExpiredKeyAndPropagate（主库）；从库/集群导入期间不本地删除，等主库合成 DEL（主从一致性关键）",
+    "stat": "stat_expiredkeys"
+  },
+  "active_delete": {
+    "file": "src/expire.c",
+    "function": "activeExpireCycle (L287)",
+    "callers": "server.c databasesCron→SLOW（serverCron，hz=10）；beforeSleep→FAST（每次事件循环）",
+    "sampling": "从 db->expires（kvstore）随机采样，每 DB 每轮 ≤20 key，按 effort(1-10) 扩展",
+    "time_limits": "SLOW: 25% * (1s/hz) = 25ms；FAST: ≤1000us，两次 FAST 间隔 ≥ 其耗时",
+    "stop": "采样过期率 < ACCEPTABLE_STALE(10%) 或时间超限",
+    "stat": "stat_expiredkeys_active / stat_expired_stale_perc"
+  },
+  "expire_storage": {
+    "redis8_kvobj": "过期时间作为元数据块内联在 kvobj（KEY_META_MASK_EXPIRE，+8B），同时维护 db->expires 供主动周期采样",
+    "replica_note": "从库由主库 DEL 驱动过期（masterhost 分支），避免主从 TTL 时钟偏差导致的数据不一致"
+  },
+  "ttl_semantics": {
+    "file": "src/expire.c",
+    "function": "ttlGenericCommand (L865)",
+    "-2": "key 不存在",
+    "-1": "存在但无过期",
+    "round": "(ttl+500)/1000 秒级四舍五入；PTTL 毫秒；EXPIRETIME/PEXPIRETIME 绝对时间"
+  }
+}

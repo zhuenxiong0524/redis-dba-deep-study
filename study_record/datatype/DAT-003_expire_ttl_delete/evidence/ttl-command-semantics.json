@@ -1,0 +1,19 @@
+{
+  "note": "TTL/EXPIRE 命令语义实验（Redis 8.6.2，DB5）",
+  "ttl_return_values": {
+    "key 不存在": -2,
+    "key 存在但无过期": -1,
+    "EX 100 后": "100 秒",
+    "PTTL": "99968ms",
+    "EXPIRETIME": "绝对 unix 秒（Redis 7+）",
+    "TTL 取整": {"PX 1500 剩 1291ms": "TTL=1（(1291+500)/1000 四舍五入到秒）"}
+  },
+  "expire_flags": {
+    "NX": "仅无过期时设置（已有过期返回 0）",
+    "XX": "仅有过期时设置",
+    "GT/LT": "新过期时间必须大于/小于当前",
+    "实测": "EXPIRE 200 NX 无过期→1 并生效；GT 300→1 后 TTL=300"
+  },
+  "persist": "PERSIST 移除过期 → TTL=-1",
+  "源码": "expire.c ttlGenericCommand / expireGenericCommand"
+}

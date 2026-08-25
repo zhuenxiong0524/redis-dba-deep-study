@@ -1,0 +1,24 @@
+{
+  "note": "Stream 消息队列与消费组实验（Redis 8.6.2，DB5）",
+  "basic": {
+    "XADD 消息ID格式": "毫秒时间戳-序列号（如 1787633650279-0），同毫秒多条自动 +1",
+    "ENCODING": "stream（listpack 节点 + rax 树）",
+    "XLEN": 3
+  },
+  "consumer_group": {
+    "XGROUP CREATE g1 0": "从头消费（历史消息）",
+    "XGROUP CREATE g2 $": "仅消费新消息",
+    "XREADGROUP GROUP g1 c1": "c1 读 2 条后 pending=2, lag=1",
+    "XACK": "确认后 pending=0",
+    "XAUTOCLAIM g1 c2 0 0-0": "c2 接管 c1 未确认消息（owner 变更），处理消费者宕机场景"
+  },
+  "vs_list_queue": {
+    "List(BRPOP)": "弹出即删（LLEN 3→2），无消费组/ACK/重放",
+    "Stream": "消费后消息仍在 stream（XLEN 不变），支持多消费组独立进度 + 挂起重放"
+  },
+  "bounded_log": {
+    "XADD MAXLEN 3 写入5条": "XLEN=3，只保留最新3条（有界日志/事件流）"
+  },
+  "blocking": "XREAD BLOCK 200ms 空流超时返回 nil",
+  "场景": ["消息队列/任务队列", "多消费组广播", "事件日志", "延迟任务（配合 XREADGROUP BLOCK）"]
+}

@@ -1,0 +1,12 @@
+{
+  "note": "定期删除实验：5000 个 400ms TTL key 全程不访问（Redis 8.6.2，DB5）",
+  "setup": "SET dat003:bulk:1..5000 + PEXPIRE 400ms",
+  "created_dbsize": 5000,
+  "after_3s_dbsize": 1,
+  "stats_delta": {
+    "expired_keys": "4 → 5003（+4999）",
+    "expired_keys_active": "4 → 5003（+4999）",
+    "结论": "删除全部由主动周期完成（keys 从未被访问，无惰性路径），证明 activeExpireCycle 独立回收内存"
+  },
+  "源码路径": "expire.c activeExpireCycle：serverCron/databasesCron 调 SLOW（hz=10，最多 25% 周期=25ms），beforeSleep 调 FAST（≤1000us）；每 DB 每轮最多 20 key（ACTIVE_EXPIRE_CYCLE_KEYS_PER_LOOP），effort 可调；可接受过期率 10%（ACCEPTABLE_STALE）"
+}

@@ -1,0 +1,15 @@
+{
+  "note": "日志轮转：/etc/logrotate.d/redis，copytruncate 适配 redis 不 reopen 日志句柄",
+  "config": "/data/redis/logs/redis.log /data/redis/6380/logs/redis.log {\n    daily\n    rotate 7\n    compress\n    delaycompress\n    missingok\n    notifempty\n    copytruncate\n    su postgres postgres\n}",
+  "force_run_result": {
+    "6379": [
+      "redis.log (0B, 新)",
+      "redis.log.1 (52KB, 轮转)"
+    ],
+    "6380": [
+      "redis.log (0B, 新)",
+      "redis.log.1 (11.7KB, 轮转)"
+    ]
+  },
+  "why_copytruncate": "redis 启动时一次性打开 logfile 句柄且不处理 reopen；copytruncate 复制内容后截断原文件，无需重启实例"
+}

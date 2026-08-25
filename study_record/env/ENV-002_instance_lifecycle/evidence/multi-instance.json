@@ -1,0 +1,12 @@
+{
+  "note": "多实例：/data/redis/6380 独立目录，与 6379 唯一差异为 port/路径/maxmemory(512mb)",
+  "dir_layout": "/data/redis/<port>/{conf/redis.conf,data/,logs/,<port>.pid}",
+  "port_conflict_log": [
+    "# Warning: Could not create server TCP listening socket 0.0.0.0:6380: bind: Address already in use"
+  ],
+  "lesson_pidfile": "端口冲突的失败进程会在 bind 前覆盖 pidfile 内容，pid 以 ps/systemctl 为准，必要时 systemctl restart 修正",
+  "instances": {
+    "6379": "process_id:2111\nrun_id:620917813a7c86e127c40b08df93eebcd0617782\ntcp_port:6379\nuptime_in_seconds:528\nuptime_in_days:0",
+    "6380": "process_id:2886\nrun_id:d4395103b55cbb22b07673b6b0c10a68c67e090e\ntcp_port:6380\nuptime_in_seconds:44\nuptime_in_days:0"
+  }
+}

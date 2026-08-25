@@ -1,0 +1,16 @@
+{
+  "note": "systemd 模板 redis@.service 托管多实例；%i 为端口",
+  "unit": "/etc/systemd/system/redis@.service",
+  "template": "[Unit]\nDescription=Redis Server %i\nAfter=network.target\n\n[Service]\nType=simple\nExecStart=/usr/local/bin/redis-server /data/redis/%i/conf/redis.conf\nExecStop=/usr/local/bin/redis-cli -p %i -a 123456 shutdown\nRestart=always\nRestartSec=2\nUser=postgres\nGroup=postgres\nLimitNOFILE=65535\n\n[Install]\nWantedBy=multi-user.target",
+  "enable": "systemctl enable redis@6380 -> Created symlink multi-user.target.wants/redis@6380.service",
+  "restart_always_test": {
+    "action": "kill -9 2862",
+    "journal": [
+      "redis@6380.service: Main process exited, code=killed, status=9/KILL",
+      "Started Redis Server 6380. (2 秒后自动拉起)"
+    ],
+    "new_pid": 2886,
+    "pidfile_match": "pidfile=2886 与进程一致"
+  },
+  "management_cmds": "systemctl start/stop/restart/status redis@6380；redis-cli -p 6380 shutdown"
+}

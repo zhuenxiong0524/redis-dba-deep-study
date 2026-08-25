@@ -1,0 +1,15 @@
+{
+  "note": "Set 编码实验：intset / listpack / hashtable（Redis 8.6.2，DB5）",
+  "defaults_src": "redis.conf：set-max-intset-entries 512，set-max-listpack-entries 128，set-max-listpack-value 64",
+  "cases": [
+    {"scenario": "5 个整数成员", "encoding": "intset"},
+    {"scenario": "512 个整数成员", "encoding": "intset"},
+    {"scenario": "513 个整数成员", "encoding": "hashtable"},
+    {"scenario": "5 个字符串成员", "encoding": "listpack"},
+    {"scenario": "200 个字符串成员(>128)", "encoding": "hashtable"}
+  ],
+  "one_way_conversion": {
+    "test": "600 整数 hashtable → SREM 删到 10 个",
+    "encoding_after_shrink": "hashtable"
+  }
+}

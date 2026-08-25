@@ -1,0 +1,9 @@
+{
+  "note": "List 编码实验：listpack → quicklist（Redis 8.6.2，DB5）",
+  "defaults_src": "redis.conf：list-max-listpack-size -2（单节点最大 8KB），list-compress-depth 0",
+  "cases": [
+    {"scenario": "3 个元素", "encoding": "listpack", "llen": 3},
+    {"scenario": "200 个元素 × 100B（约 20KB，超过 8KB 节点上限）", "encoding": "quicklist", "llen": 200, "memory_usage": 21029}
+  ],
+  "conclusion": "小列表整体为单个 listpack；超过 8KB 转为 quicklist（链表，每个节点仍是 listpack）"
+}

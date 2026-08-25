@@ -1,0 +1,21 @@
+{
+  "note": "环境验证结果（2026-08-25）",
+  "ping": "PONG",
+  "basic_ops": {
+    "set": "OK",
+    "get": "hello redis 8.6",
+    "del": 1
+  },
+  "dbsize_after_clean": 0,
+  "slowlog_len": 0,
+  "service": {
+    "name": "redis.service",
+    "state": "active"
+  },
+  "process": {
+    "pid": 2111,
+    "user": "postgres"
+  },
+  "pidfile": "/data/redis/redis_6379.pid",
+  "run_as_user": "postgres (非 root，与 PG 实例规范一致)"
+}

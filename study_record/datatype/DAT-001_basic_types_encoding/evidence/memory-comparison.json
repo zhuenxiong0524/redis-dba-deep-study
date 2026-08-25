@@ -1,0 +1,19 @@
+{
+  "note": "MEMORY USAGE 编码内存对比（Redis 8.6.2，DB5）",
+  "string": [
+    {"encoding": "embstr", "key_len": 1, "val_len": 40, "usage_bytes": 64, "note": "单次 64B 分配（kvobj+key+value 内联）"},
+    {"encoding": "raw", "key_len": 1, "val_len": 52, "usage_bytes": 80, "note": "kvobj + 独立 sds 两次分配"},
+    {"encoding": "int", "value": 5, "usage_bytes": 24, "note": "指针即值，无 sds 分配"}
+  ],
+  "hash": [
+    {"encoding": "listpack", "fields": 100, "usage_bytes": 1031},
+    {"encoding": "hashtable", "fields": 101, "one_70B_value": true, "usage_bytes": 4807}
+  ],
+  "zset": [
+    {"encoding": "listpack", "members": 100, "usage_bytes": 739},
+    {"encoding": "skiplist", "members": 101, "one_70B_member": true, "usage_bytes": 9000}
+  ],
+  "list": [
+    {"encoding": "quicklist", "llen": 200, "each_elem_100B": true, "usage_bytes": 21029}
+  ]
+}

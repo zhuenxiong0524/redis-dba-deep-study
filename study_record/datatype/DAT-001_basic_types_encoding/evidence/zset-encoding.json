@@ -1,0 +1,13 @@
+{
+  "note": "ZSet 编码实验：listpack → skiplist（Redis 8.6.2，DB5）",
+  "defaults_src": "redis.conf：zset-max-listpack-entries 128，zset-max-listpack-value 64",
+  "cases": [
+    {"scenario": "3 个成员", "encoding": "listpack"},
+    {"scenario": "200 个成员", "encoding": "skiplist", "zcard": 200}
+  ],
+  "memory_compare": {
+    "listpack_100_members": 739,
+    "skiplist_101_members_with_70B_member": 9000,
+    "conclusion": "skiplist 每成员额外负担 dict+跳表节点，同等数据量内存约为 listpack 的 10 倍以上"
+  }
+}

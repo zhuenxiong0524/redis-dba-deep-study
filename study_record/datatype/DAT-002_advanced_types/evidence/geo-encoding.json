@@ -1,0 +1,25 @@
+{
+  "note": "Geo 附近的人实验（Redis 8.6.2，DB5）",
+  "base": {
+    "底层实现": "ZSet（geohash 整数作为 score）",
+    "TYPE": "zset",
+    "OBJECT_ENCODING": "listpack（小集合）",
+    "ZSCORE_天安门": 4069885365177207
+  },
+  "demo_points": {
+    "天安门": [116.397, 39.909],
+    "故宫": [116.407, 39.916],
+    "颐和园": [116.340, 39.930],
+    "北京南站": [116.458, 39.871],
+    "上海外滩": [121.473, 31.230]
+  },
+  "geodist": {"天安门_to_故宫_km": 1.1548},
+  "geohash": {"天安门": "wx4g09jwy80"},
+  "geosearch_radius_10km_from_天安门": [
+    {"member": "故宫", "dist_km": 1.1548},
+    {"member": "颐和园", "dist_km": 5.3945},
+    {"member": "北京南站", "dist_km": 6.7055}
+  ],
+  "结论": "GEOSEARCH(FROMMEMBER/BYLONLAT, BYRADIUS/BYBOX) 替代旧 GEORADIUS；上海外滩不在10km内被正确排除",
+  "场景": ["附近的人/门店", "LBS 检索", "配送范围判断"]
+}
