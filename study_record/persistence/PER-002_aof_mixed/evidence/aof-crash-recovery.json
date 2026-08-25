@@ -1,0 +1,17 @@
+{
+  "note": "kill -9 崩溃恢复实测（临时实例 6390，数据目录 /tmp/redis_crash_demo_1787651092）",
+  "steps": [
+    "写 4 个 key（string/hash/string/string）→ DBSIZE=4",
+    "kill -9 主进程（不优雅关闭）→ 端口停止",
+    "重启 → 4/4 key 全部恢复"
+  ],
+  "recovery_log": [
+    "Done loading RDB, keys loaded: 0, keys expired: 0.",
+    "DB loaded from base file appendonly.aof.1.base.rdb: 0.001 seconds",
+    "DB loaded from incr file appendonly.aof.1.incr.aof: 0.000 seconds",
+    "DB loaded from append only file: 0.001 seconds",
+    "Ready to accept connections tcp"
+  ],
+  "recovery_flow": "启动 → 读 manifest → 加载 base RDB（全量）→ 回放 incr AOF（增量）→ 就绪",
+  "fsync_note": "appendfsync everysec：崩溃最多丢最近 1 秒内未 fsync 的命令（本演示 4 key 全部恢复）"
+}

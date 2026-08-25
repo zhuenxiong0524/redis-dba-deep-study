@@ -1,0 +1,33 @@
+{
+  "note": "8.x 多部件 AOF 结构实测（Redis 8.6.2，/data/redis_new/data/appendonlydir/）",
+  "files": [
+    {
+      "name": "appendonly.aof.4.base.rdb",
+      "size": 1035,
+      "role": "base RDB：重写时的全量快照"
+    },
+    {
+      "name": "appendonly.aof.4.incr.aof",
+      "size": 488,
+      "role": "增量命令日志：base 之后的写命令"
+    },
+    {
+      "name": "appendonly.aof.manifest",
+      "size": 108,
+      "role": "清单：当前用哪份 base + 增量从哪个偏移开始"
+    }
+  ],
+  "manifest_content": "file appendonly.aof.4.base.rdb seq 4 type b\nfile appendonly.aof.4.incr.aof seq 4 type i startoffset 2306507",
+  "rewrite": {
+    "trigger": "auto-aof-rewrite-percentage 100 + auto-aof-rewrite-min-size 32MB（或手动 BGREWRITEAOF）",
+    "before": "aof_current_size 28MB",
+    "after": "1KB（只保留最终状态）",
+    "mechanism": "fork 子进程生成新 base RDB + 记录期间增量 → manifest 原子切换新序列（seq 递增）"
+  },
+  "info_fields": {
+    "aof_enabled": 1,
+    "aof_current_size": 1523,
+    "aof_base_size": 1035,
+    "aof_last_bgrewrite_status": "ok"
+  }
+}
