@@ -1,0 +1,34 @@
+{
+  "note": "ARC-002 对象系统源码取证（Redis 8.6.2，/data/redis_pkg/redis-stable/src）",
+  "robj": {
+    "file": "object.h:99",
+    "size": "16 字节（bitfield 压缩：type:4 + encoding:4 + refcount:23 + iskvobj:1 + metabits:8 + lru:24 + ptr:8）",
+    "refcount_bits": 23,
+    "shared_refcount": "OBJ_SHARED_REFCOUNT=2^23-1=8388607（object.h:94）",
+    "encodings": {
+      "RAW": 0, "INT": 1, "HT": 2, "INTSET": 6, "SKIPLIST": 7, "EMBSTR": 8,
+      "QUICKLIST": 9, "STREAM": 10, "LISTPACK": 11, "LISTPACK_EX": 12
+    }
+  },
+  "kvobj_8x": {
+    "file": "object.h:99 注释区",
+    "detail": "8.x 键值一体：key 内嵌在 robj 后，小 value 也内嵌（kvobjSet，object.c:290）；过期元数据以 8 字节块前置（DAT-003 已证 +8B）",
+    "embed_rule": "embstr 且 size(16 + key_sds + value_sds + 1) <= CACHE_LINE_SIZE 时内嵌，否则转 raw"
+  },
+  "string_creation": {
+    "createStringObject": { "file": "object.c:338", "detail": "len<=44 走 EMBSTR（OBJ_ENCODING_EMBSTR_SIZE_LIMIT=44，object.c:337），否则 RAW" },
+    "createEmbeddedStringObject": { "file": "object.c:221", "detail": "robj 与 SDS 同一次分配（zmalloc_usable），减少 malloc 次数与缓存未命中" },
+    "tryObjectEncoding": { "file": "object.c", "detail": "RAW/EMBSTR 字符串可转 INT：len<=20 且 string2l 成功；refcount>1 或已共享对象不转" },
+    "shared_integers": { "file": "server.h:125", "detail": "OBJ_SHARED_INTEGERS=10000（0..9999 预建共享对象，供回复等内部使用）" }
+  },
+  "collection_encodings": {
+    "intset": { "file": "intset.h:35", "struct": "uint32 encoding + uint32 length + int8 contents[]（有序紧凑数组）" },
+    "listpack": { "file": "listpack.c:27", "detail": "LP_HDR_SIZE=6（4B 总长+2B 元素数）；紧凑字节数组，整数编码最多 9 字节" },
+    "quicklist": { "file": "quicklist.h:107/quicklistNode", "detail": "双向链表，每个节点是一个 listpack；fill=-2 表示单节点≤8KB；支持 LZF 压缩两端之外节点" },
+    "zskiplist": { "file": "server.h:1699-1711", "struct": "zskiplistNode(score+backward+level[])+zskiplist(header/tail/length/level)；zset=dict+skiplist 双结构" }
+  },
+  "conversion_points": {
+    "set_intset_to_ht": { "file": "t_set.c:63", "detail": "maybeConvertIntset：intsetLen > set_max_intset_entries 时直接转 HT（不经过 listpack）" },
+    "zset_listpack_to_skiplist": { "file": "t_zset.c:55", "detail": "zsetAdd：元素数>zset_max_listpack_entries 或值>64B 时 zsetConvertAndExpand 转 SKIPLIST" }
+  }
+}

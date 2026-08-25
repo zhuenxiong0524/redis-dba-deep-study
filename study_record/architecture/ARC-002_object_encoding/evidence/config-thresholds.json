@@ -1,0 +1,13 @@
+{
+  "note": "ARC-002 编码阈值配置默认值（Redis 8.6.2:6379 CONFIG GET）",
+  "hash-max-listpack-entries": 512,
+  "hash-max-listpack-value": 64,
+  "set-max-intset-entries": 512,
+  "set-max-listpack-entries": 128,
+  "set-max-listpack-value": 64,
+  "zset-max-listpack-entries": 128,
+  "zset-max-listpack-value": 64,
+  "list-max-listpack-size": -2,
+  "list_meaning": "-2 = 每个 listpack 节点上限 8KB（config.c:3212 别名 list-max-ziplist-size，可运行时 MODIFY）",
+  "note2": "这些阈值均可 CONFIG SET 动态调整（MEMORY_CONFIG/INTEGER_CONFIG），是 DBA 调内存的手段"
+}

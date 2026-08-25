@@ -1,0 +1,22 @@
+{
+  "note": "ARC-002 String 编码与 kvobj 影响实测（Redis 8.6.2:6379 db5，2026-08-25）",
+  "string_memory": {
+    "s:int_100":    { "encoding": "int",    "mem_bytes": 24 },
+    "s:bigint_100000": { "encoding": "int", "mem_bytes": 32 },
+    "s:emb_hello":  { "encoding": "embstr", "mem_bytes": 40 },
+    "s:raw_44char": { "encoding": "raw",    "mem_bytes": 80 },
+    "s:raw_45char": { "encoding": "raw",    "mem_bytes": 88 }
+  },
+  "embstr_threshold_8x": {
+    "rule": "kvobj 缓存行约束：key_len + value_len <= 41 时值保持 embstr，否则 raw（7.x 为固定 44 字节）",
+    "key_k_len1":  { "max_embstr_value_len": 40, "min_raw_value_len": 41 },
+    "key_kkkkk_len5": { "max_embstr_value_len": 36, "min_raw_value_len": 37 },
+    "key_kxxxxxxxxx_len10": { "max_embstr_value_len": 31, "min_raw_value_len": 32 }
+  },
+  "shared_integers_8x": {
+    "test": "SET k1 5 / SET k2 5 / SET k3 5",
+    "object_refcount_each": 1,
+    "encoding": "int",
+    "meaning": "8.x keyspace 值由 kvobj 承载、每 key 独立对象，不再共享整数对象（7.x 中 OBJECT REFCOUNT 会显示 2147483647）；OBJ_SHARED_INTEGERS=10000 仍用于内部回复"
+  }
+}

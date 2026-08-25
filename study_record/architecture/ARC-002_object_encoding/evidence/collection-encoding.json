@@ -1,0 +1,33 @@
+{
+  "note": "ARC-002 集合编码切换与内存实测（Redis 8.6.2:6379 db5，2026-08-25）",
+  "hash": {
+    "config": { "hash-max-listpack-entries": 512, "hash-max-listpack-value": 64 },
+    "511_fields": { "encoding": "listpack", "mem_bytes": 5947 },
+    "512_fields": { "encoding": "listpack", "mem_bytes": 5959 },
+    "513_fields": { "encoding": "hashtable", "mem_bytes": 27550, "jump": "4.6x" },
+    "value_64B": { "encoding": "listpack" },
+    "value_65B": { "encoding": "hashtable" }
+  },
+  "set_int": {
+    "config": { "set-max-intset-entries": 512 },
+    "512_ints": { "encoding": "intset", "mem_bytes": 1056 },
+    "513_ints": { "encoding": "hashtable", "mem_bytes": 23041, "jump": "21.8x", "note": "intset 超限直接转 HT（t_set.c maybeConvertIntset），不经过 listpack" }
+  },
+  "set_string": {
+    "config": { "set-max-listpack-entries": 128, "set-max-listpack-value": 64 },
+    "128_string_members": { "encoding": "listpack", "mem_bytes": 691 },
+    "129_string_members": { "encoding": "hashtable", "mem_bytes": 5890, "jump": "8.5x" },
+    "member_65B": { "encoding": "hashtable" },
+    "mixed_int_string": { "encoding": "listpack" }
+  },
+  "zset": {
+    "config": { "zset-max-listpack-entries": 128, "zset-max-listpack-value": 64 },
+    "127_members": { "encoding": "listpack", "mem_bytes": 939 },
+    "128_members": { "encoding": "listpack", "mem_bytes": 948 },
+    "129_members": { "encoding": "skiplist", "mem_bytes": 11752, "jump": "12.5x" }
+  },
+  "list": {
+    "config": { "list-max-listpack-size": -2 },
+    "100000_elements": { "encoding": "quicklist", "mem_bytes": 465762, "bytes_per_element": 4.66, "note": "quicklist=listpack 节点双向链表，元素再多仍是 quicklist，不整体转 HT" }
+  }
+}
