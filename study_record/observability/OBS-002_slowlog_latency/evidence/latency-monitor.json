@@ -1,0 +1,25 @@
+{
+  "note": "LATENCY 事件监控实测：本实例 latency-monitor-threshold=0（默认关闭），且 CONFIG 被 rename-command 禁用，无法在线开启",
+  "observed": {
+    "LATENCY DOCTOR": "I'm sorry, Dave, I can't do that. Latency monitoring is disabled in this Redis instance. You may use CONFIG SET latency-monitor-threshold <milliseconds> in order to enable it.",
+    "LATENCY LATEST": "空（无事件）",
+    "LATENCY HISTORY command": "空（无事件）",
+    "LATENCY RESET": "0（未重置任何事件）"
+  },
+  "enable_methods": [
+    "redis.conf 写入 latency-monitor-threshold 100（单位 ms）后重启",
+    "CONFIG SET latency-monitor-threshold 100（本实例因安全加固禁用 CONFIG，生产按需评估）"
+  ],
+  "events": [
+    "command(命令执行超阈值)",
+    "fork(RDB/AOF fork 耗时)",
+    "aof-write(磁盘写)",
+    "eviction(淘汰)",
+    "expire-cycle(过期清理)"
+  ],
+  "redis8_plus": "8.x 另有命令延迟跟踪（latency-tracking yes + latency-tracking-info-percentiles），需 CONFIG 开启，本实例未启用",
+  "diff_slowlog": {
+    "SLOWLOG": "记录'命令执行超过阈值'的明细（谁、什么时候、什么命令、多少微秒），默认 10ms 开启，环形保留 128 条",
+    "LATENCY": "记录'延迟事件'的发生时间与采样直方图（command/fork/aof-write 等类别），默认关闭，适合看尖峰趋势与根因类别"
+  }
+}

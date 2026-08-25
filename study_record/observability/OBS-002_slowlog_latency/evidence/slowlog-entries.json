@@ -1,0 +1,50 @@
+{
+  "note": "SLOWLOG 实测（Redis 8.6.2：6379）：配置见 /data/redis/conf/redis.conf slowlog-log-slower-than=10000(us=10ms)、slowlog-max-len=128；SLOWLOG 命令不受 CONFIG rename 影响，始终可用",
+  "final_entries": [
+    {
+      "id": 137,
+      "duration_us": 728022,
+      "ms": 728.0,
+      "command": "EVAL(造30万list RPUSH)",
+      "client": "127.0.0.1:43862"
+    },
+    {
+      "id": 138,
+      "duration_us": 239096,
+      "ms": 239.1,
+      "command": "SORT biglist LIMIT 0 1",
+      "client": "127.0.0.1:43870"
+    },
+    {
+      "id": 139,
+      "duration_us": 22512,
+      "ms": 22.5,
+      "command": "LREM biglist 100000 150000",
+      "client": "127.0.0.1:43884"
+    },
+    {
+      "id": 140,
+      "duration_us": 125107,
+      "ms": 125.1,
+      "command": "EVAL(800万次纯Lua循环)",
+      "client": "127.0.0.1:43896"
+    }
+  ],
+  "field_parse": {
+    "id": "条目编号，从 0 开始递增，SLOWLOG RESET 只清列表、不清计数器（实测 RESET 后新条目 id 从 137 继续）",
+    "timestamp": "Unix 秒级时间戳（1787644747），可换算北京时间定位故障窗口",
+    "duration": "命令耗时，单位微秒(us)；1000000us=1s",
+    "command_args": "完整命令与参数（含 key 名，便于定位是哪个 key 的操作慢）",
+    "client_addr": "客户端 IP:端口，可回溯是哪个应用/连接发起的"
+  },
+  "commands": {
+    "SLOWLOG GET 10": "取最近 10 条（GET N 是'最近 N 条'，不是历史第 N 条）",
+    "SLOWLOG LEN": "当前条数，实测 128 上限生效",
+    "SLOWLOG RESET": "清空列表；注意不重置 id 计数器",
+    "SLOWLOG GET 1000000": "取全部（超过 max-len 仍只返回 128 条）"
+  },
+  "ring_buffer_test": {
+    "method": "连续执行 130 条 >10ms 的 EVAL 慢命令",
+    "result": "SLOWLOG LEN 停在 128；最旧条目 id=9、最新 id=136（id 2-8 被挤出），证明是环形缓冲、超过 slowlog-max-len 丢弃最旧"
+  }
+}

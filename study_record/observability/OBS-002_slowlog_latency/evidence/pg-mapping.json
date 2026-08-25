@@ -1,0 +1,31 @@
+{
+  "note": "延迟监控的 PG 对照（PG 18.4:54184 实测：pg_stat_statements 未安装、log_min_duration_statement=-1）",
+  "mapping": [
+    {
+      "redis": "SLOWLOG（slowlog-log-slower-than=10ms 默认开启）",
+      "pg": "log_min_duration_statement（默认 -1 关闭）",
+      "实测": "Redis 默认记录 10ms 以上慢命令；PG 默认 -1 不记录，需手动开启"
+    },
+    {
+      "redis": "SLOWLOG GET 解析（id/时间戳/耗时/命令/客户端）",
+      "pg": "pg_stat_statements（mean_exec_time/max_exec_time/calls，需 CREATE EXTENSION）",
+      "实测": "本机未安装 pg_stat_statements，给出启用方法"
+    },
+    {
+      "redis": "redis-cli --latency（端到端往返）",
+      "pg": "pgbench -c1 -T10 或客户端驱动测量 / EXPLAIN ANALYZE 单语句耗时",
+      "说明": "链路延迟 vs 语句执行时间"
+    },
+    {
+      "redis": "LATENCY 事件（command/fork/aof-write）",
+      "pg": "pg_stat_activity.wait_event / pg_stat_bgwriter checkpoint 耗时",
+      "说明": "等待事件与根因分类"
+    },
+    {
+      "redis": "延迟定位三件套：SLOWLOG+LATENCY+--latency",
+      "pg": "慢日志 + pg_stat_activity + 等待事件（pg_stat_wait）",
+      "说明": "监控体系同构"
+    }
+  ],
+  "enable_pg_stat_statements": "shared_preload_libraries='pg_stat_statements'（需重启）+ CREATE EXTENSION pg_stat_statements"
+}

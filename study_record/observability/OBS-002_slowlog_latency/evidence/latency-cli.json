@@ -1,0 +1,17 @@
+{
+  "note": "redis-cli --latency：客户端端到端往返延迟（含网络），默认每秒采样一次；输出格式（raw）为 min max avg samples，单位 ms",
+  "output_6s": [
+    0,
+    1,
+    0.17,
+    64
+  ],
+  "output_10s": [
+    0,
+    1,
+    0.12,
+    91
+  ],
+  "format_source": "src/redis-cli.c latencyModePrint: OUTPUT_RAW 打印 min max avg count；OUTPUT_CSV 打印 min,max,avg,count",
+  "interpretation": "本机回环 min=0ms、max=1ms、avg≈0.12-0.17ms：端到端链路健康；若 avg 高说明网络/客户端侧问题，若 avg 低但业务偶尔超时则查 SLOWLOG 服务端慢命令"
+}

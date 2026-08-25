@@ -1,0 +1,18 @@
+{
+  "note": "redis-cli --intrinsic-latency 3（参数单位是秒，非次数）：测量本机固有延迟（进程到内核往返），127.0.0.1:6379",
+  "output": [
+    "Max latency so far: 5 microseconds.",
+    "Max latency so far: 41 microseconds.",
+    "Max latency so far: 147 microseconds.",
+    "Max latency so far: 251 microseconds.",
+    "Max latency so far: 4831 microseconds."
+  ],
+  "result": {
+    "total_runs": 584671,
+    "avg_latency_us": 5.13,
+    "avg_latency_ns": 5131.09,
+    "worst_run_us": 4831,
+    "worst_ratio": "Worst run took 942x longer than the average latency"
+  },
+  "interpretation": "平均 5us 但偶发 4.8ms 尖峰（942 倍）：固有延迟本身很低，尖峰通常来自内核调度/CPU 抢占/内存页错误，先排除环境层再查应用"
+}
