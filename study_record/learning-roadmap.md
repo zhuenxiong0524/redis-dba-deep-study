@@ -260,7 +260,7 @@
 - 前置任务：ENV-001
 - 主文章类型：observability
 - 研究深度：快速沉淀
-- 任务说明：INFO 九大区块、关键指标清单、redis-cli --stat、与 PG 监控指标对照
+- 任务说明：INFO 十四大区块（8.x 含 Hotkeys/Keysizes）、关键指标清单、redis-cli --stat、负载前后对比、与 PG 监控指标对照
 
 ### OBS-002 SLOWLOG 与延迟监控
 

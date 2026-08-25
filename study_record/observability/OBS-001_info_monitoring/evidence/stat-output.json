@@ -1,0 +1,25 @@
+{
+  "note": "redis-cli --stat 每秒采样输出（Redis 8.6.2，后台压测制造负载，命令：stdbuf -oL redis-cli -h 127.0.0.1 -p 6379 -a 123456 --no-auth-warning --stat）",
+  "expected_warning": "启动时打印 'CONFIG GET databases fails: ERR unknown command CONFIG ... use default value 16 instead'：实例 rename-command 禁用 CONFIG，属预期，不影响统计采样",
+  "sample_rows": [
+    {
+      "keys": 6,
+      "mem": "4.13M",
+      "clients": 52,
+      "blocked": 0,
+      "requests": 953228,
+      "connections": 3803,
+      "说明": "压测中：clients=52（50 并发 + 采样连接），requests 快速上涨"
+    },
+    {
+      "keys": 6,
+      "mem": "3.25M",
+      "clients": 2,
+      "blocked": 0,
+      "requests": 957754,
+      "connections": 3803,
+      "说明": "压测结束：clients 回落 2，requests 每秒 +1（空闲心跳）"
+    }
+  ],
+  "columns": "keys=当前库 key 数 / mem=内存 / clients=连接数 / blocked=阻塞客户端 / requests=累计命令数 / connections=累计连接数"
+}

@@ -1,0 +1,34 @@
+{
+  "note": "redis-benchmark 负载实验（4 类型 x 10万请求 x 50 并发，隔离库 DB15）：redis-benchmark -u redis://default:123456@127.0.0.1:6379/15 -t set,get,incr,lpush -n 100000 -c 50 -q",
+  "uri_requirement": "URI 必须写 default: 用户名：redis://default:pass@host:port/db；redis://:pass@ 会报 WRONGPASS",
+  "before_after": {
+    "total_commands_processed": [
+      376819,
+      777224
+    ],
+    "delta_commands": 400405,
+    "keyspace_hits_delta": 100000,
+    "total_net_input_bytes_delta_mb": 15.8
+  },
+  "types": {
+    "SET": {
+      "rps": 35000,
+      "p50_ms": 1.09
+    },
+    "GET": {
+      "rps": 38000,
+      "p50_ms": 0.74
+    },
+    "INCR": {
+      "rps": 40000,
+      "p50_ms": 0.92
+    },
+    "LPUSH": {
+      "rps": 33000,
+      "p50_ms": 1.1
+    }
+  },
+  "instantaneous_ops_per_sec_under_load": "35000-40000",
+  "artifact_cleanup": "产物 key 在 DB15，压测后 DEL 清理，dbsize=0",
+  "expected_warning": "redis-benchmark 提示 'Could not fetch server CONFIG'：本实例 rename-command 禁用了 CONFIG，属预期现象，不影响压测结果"
+}

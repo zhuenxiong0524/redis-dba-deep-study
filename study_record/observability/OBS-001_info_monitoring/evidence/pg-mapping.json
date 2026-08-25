@@ -1,0 +1,45 @@
+{
+  "note": "INFO 指标与 PG 监控体系对照（PG 18.4:54184 ↔ Redis 8.6.2:6379），供监控体系双数据库统一口径",
+  "mapping": [
+    {
+      "redis": "INFO stats: total_commands_processed / instantaneous_ops_per_sec",
+      "pg": "pg_stat_database: xact_commit+xact_rollback / pg_stat_activity 活跃会话估算",
+      "说明": "吞吐与负载"
+    },
+    {
+      "redis": "INFO stats: keyspace_hits / keyspace_misses",
+      "pg": "pg_statio_user_tables: heap_blks_hit / heap_blks_read（缓冲命中率）",
+      "说明": "命中率类指标"
+    },
+    {
+      "redis": "INFO clients: connected_clients / blocked_clients",
+      "pg": "pg_stat_activity: count(*) where state='active' / pg_stat_activity wait_event",
+      "说明": "连接与会话"
+    },
+    {
+      "redis": "INFO memory: used_memory / maxmemory / mem_fragmentation_ratio",
+      "pg": "shared_buffers / work_mem / pg_stat_bgwriter buffers",
+      "说明": "内存水位"
+    },
+    {
+      "redis": "INFO replication: role / connected_slaves / master_repl_offset",
+      "pg": "pg_stat_replication: state / sent_lsn / replay_lsn",
+      "说明": "主从状态与延迟"
+    },
+    {
+      "redis": "INFO persistence: rdb_last_bgsave_status / aof_last_write_status / latest_fork_usec",
+      "pg": "pg_stat_bgwriter: checkpoint 相关 / 最近 checkpoint 耗时",
+      "说明": "落盘与 checkpoint"
+    },
+    {
+      "redis": "INFO errorstats: 错误码计数",
+      "pg": "pg_stat_database: 报错日志 / pg_stat_user_indexes 等异常扫描",
+      "说明": "错误与异常"
+    },
+    {
+      "redis": "SLOWLOG GET（延迟类，OBS-002）",
+      "pg": "pg_stat_statements: mean_exec_time / max_exec_time",
+      "说明": "慢请求定位"
+    }
+  ]
+}
