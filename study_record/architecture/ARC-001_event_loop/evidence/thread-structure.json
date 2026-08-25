@@ -1,0 +1,13 @@
+{
+  "note": "ARC-001 进程线程结构取证（Redis 8.6.2:6379，pid=602，io-threads=1）",
+  "threads_total": 6,
+  "thread_names": [
+    "redis-server (主线程：事件循环+命令执行)",
+    "bio_close_file (后台线程：异步关闭 fd)",
+    "bio_aof (后台线程：异步 AOF fsync)",
+    "bio_lazy_free (后台线程：异步释放内存/UNLINK)",
+    "jemalloc_bg_thd x2 (内存分配器后台线程)"
+  ],
+  "conclusion": "命令执行只有主线程一个；bio_* 是后台 IO 线程，只做异步收尾，不执行命令",
+  "info_threads": { "io_thread_0": "clients=1,reads=37,writes=24", "io_threaded_reads_processed": 0, "io_threaded_writes_processed": 0 }
+}

@@ -1,0 +1,20 @@
+{
+  "note": "ARC-001 事件循环固有延迟与吞吐（Redis 8.6.2:6379，2026-08-25）",
+  "intrinsic_latency_3s": {
+    "total_runs": 604166,
+    "avg_usec": 4.9655,
+    "avg_nsec": 4965.52,
+    "worst_run_usec": 10046,
+    "meaning": "事件循环单轮基础开销≈5µs（无网络、本进程内），worst 为 1 核 VM 偶发调度/fork 毛刺"
+  },
+  "throughput_50clients_200k": {
+    "ping_inline_rps": 37993.92,
+    "ping_inline_p50_ms": 0.695,
+    "ping_mbulk_rps": 37091.99,
+    "ping_mbulk_p50_ms": 0.687
+  },
+  "info_stats": {
+    "instantaneous_eventloop_cycles_per_sec": 9,
+    "instantaneous_eventloop_duration_usec": 311
+  }
+}

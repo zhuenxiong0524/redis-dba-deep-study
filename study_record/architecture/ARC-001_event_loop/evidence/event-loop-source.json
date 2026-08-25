@@ -1,0 +1,28 @@
+{
+  "note": "ARC-001 事件循环与命令主流程源码取证（Redis 8.6.2，/data/redis_pkg/redis-stable）",
+  "source_root": "/data/redis_pkg/redis-stable/src",
+  "startup_chain": [
+    { "step": "main()", "file": "server.c:7683", "detail": "启动后最后调用 aeMain(server.el) 进入事件循环" },
+    { "step": "initServer()", "file": "server.c:2862", "detail": "aeCreateEventLoop(maxclients+CONFIG_FDSET_INCR) 创建事件循环(server.c:2937)；监听 socket 注册 AE_READABLE accept 事件(createSocketAcceptHandler, server.c:2706)" },
+    { "step": "aeMain()", "file": "ae.c:492", "detail": "while (!stop) aeProcessEvents(AE_ALL_EVENTS | CALL_BEFORE_SLEEP | CALL_AFTER_SLEEP) 死循环" },
+    { "step": "aeProcessEvents()", "file": "ae.c:360", "detail": "先调 beforeSleep（写回复/刷AOF/快速过期），再 epoll_wait 阻塞等待，事件就绪后按 fd 分发 rfileProc/wfileProc" },
+    { "step": "aeApiPoll()", "file": "ae_epoll.c:89", "detail": "epoll_wait(state->epfd, events, setsize, timeout)；epoll_create 见 ae_epoll.c:19；multiplexing_api 实测为 epoll" }
+  ],
+  "command_chain": [
+    { "step": "acceptCommonHandler/createClient", "file": "networking.c:1619/121", "detail": "新连接注册读处理器 connSetReadHandler(conn, readQueryFromClient)（networking.c:132）" },
+    { "step": "readQueryFromClient()", "file": "networking.c:3715", "detail": "epoll 就绪回调：read() 收数据入 querybuf，随后调用 processInputBuffer(c)" },
+    { "step": "processInputBuffer()", "file": "networking.c:3529", "detail": "解析 RESP 协议（inline/multibulk）成命令；主线程上下文调用 processCommandAndResetClient" },
+    { "step": "processCommandAndResetClient()", "file": "networking.c:3394", "detail": "设置 server.current_client 后调用 processCommand(c)" },
+    { "step": "processCommand()", "file": "server.c:4297", "detail": "权限/参数/最大内存/集群槽等检查，最后 call(c, flags)（server.c:4673）" },
+    { "step": "call()", "file": "server.c:3830", "detail": "c->cmd->proc(c) 真正执行命令；执行完统计 duration、慢日志、命令统计、MONITOR 传播" }
+  ],
+  "write_back": [
+    { "step": "beforeSleep()", "file": "server.c:1857", "detail": "每轮事件循环 sleep 前：handleClientsWithPendingWrites() 批量写回客户端输出缓冲（合并小包），并 flushAppendOnlyFile、activeExpireCycle(FAST)" }
+  ],
+  "io_threads": [
+    { "step": "config", "file": "config.c:3208", "detail": "io-threads 配置：IMMUTABLE_CONFIG（不可 CONFIG SET），范围 1-128，默认 1 = 单线程" },
+    { "step": "deprecated", "file": "config.c:455", "detail": "io-threads-do-reads 已列入 deprecated_configs（8.x 中 io-threads>1 时读写均走 IO 线程）" },
+    { "step": "initThreadedIO()", "file": "iothread.c:868", "detail": "if (server.io_threads_num <= 1) return; 只有 >1 才 pthread_create IO 线程" },
+    { "step": "IOThreadMain()", "file": "iothread.c:854", "detail": "每个 IO 线程跑自己的 aeMain(t->el) 事件循环，只做 socket 读/写，不执行命令" }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "note": "ARC-001 单线程串行阻塞实验（Redis 8.6.2:6379，2026-08-25）",
+  "setup": "客户端 A 延迟 1s 后执行 DEBUG SLEEP 3；客户端 B 同时用 --latency -i 1 采样 PING 延迟 6s",
+  "client_a": { "cmd": "DEBUG SLEEP 3", "result": "OK" },
+  "client_b_latency": {
+    "samples": 90,
+    "min_ms": 0,
+    "avg_ms": 33.42,
+    "max_ms": 2998,
+    "meaning": "DEBUG SLEEP 3 执行期间，所有其他客户端请求被串行阻塞，PING 最大延迟≈3s"
+  },
+  "slowlog": {
+    "id": 1,
+    "timestamp": 1787669403,
+    "duration_usec": 3000614,
+    "command": ["DEBUG", "SLEEP", "3"],
+    "client": "127.0.0.1:60216"
+  },
+  "commandstats": {
+    "cmdstat_debug": { "calls": 2, "usec": 6004745, "usec_per_call": 3002372.50 },
+    "cmdstat_ping": { "calls": 172, "usec": 178, "usec_per_call": 1.03 }
+  }
+}

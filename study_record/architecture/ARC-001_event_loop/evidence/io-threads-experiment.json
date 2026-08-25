@@ -1,0 +1,21 @@
+{
+  "note": "ARC-001 io-threads 对照实验（临时实例 127.0.0.1:6390，io-threads 1 vs 4，50 并发 30 万请求）",
+  "environment": { "cpu_cores": 1, "kernel": "Linux 5.10.0-38-amd64" },
+  "io_threads_1": {
+    "process_threads": 6,
+    "ping_inline_rps": 40546.02,
+    "ping_mbulk_rps": 39724.57,
+    "io_threaded_reads_processed": 0,
+    "io_threaded_writes_processed": 0,
+    "info_threads": "仅 io_thread_0"
+  },
+  "io_threads_4": {
+    "process_threads": 9,
+    "ping_inline_rps": 21830.88,
+    "ping_mbulk_rps": 22497.19,
+    "io_threaded_reads_processed": 600103,
+    "io_threaded_writes_processed": 600001,
+    "info_threads": "io_thread_0..3，读写分布在 io_thread_1/2/3"
+  },
+  "conclusion": "io-threads 并行的是 socket 读写（计数证实），命令执行仍单线程；本机仅 1 核，线程交接开销>并行收益，io-threads=4 反而慢约 46%；多核+网络瓶颈（大 value）场景才可能受益"
+}
