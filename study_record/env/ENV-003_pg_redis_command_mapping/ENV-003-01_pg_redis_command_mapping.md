@@ -218,7 +218,7 @@ Redis: ZREVRANGE rank 0 -1 → p2, p3, p1；ZREVRANK rank p2 → 0（从 0 计�
 | 结构查看 | `\d table` | `TYPE key` + `OBJECT ENCODING key` + `MEMORY USAGE key` |
 | 事务 | `BEGIN/COMMIT/ROLLBACK`（可回滚） | `MULTI/EXEC/DISCARD`（打包执行，无回滚） |
 | 权限 | `\du` / `CREATE ROLE` / `GRANT` | `ACL LIST` / `ACL SETUSER`（命令+key 前缀粒度） |
-| 配置 | `SHOW port;` → 54184 | `CONFIG GET`（本实例已禁用，看 redis.conf） |
+| 配置 | `SHOW port;` → 54184 | `CONFIG GET`（2026-08-25 重建后已启用；旧环境曾禁用，需看 redis.conf） |
 | 备份 | `pg_dump` / `pg_basebackup` | `BGSAVE` / `redis-cli --rdb` |
 | 慢查询 | `log_min_duration_statement` | `SLOWLOG GET` |
 | 活跃连接 | `pg_stat_activity` | `CLIENT LIST` |
@@ -228,7 +228,7 @@ Redis: ZREVRANGE rank 0 -1 → p2, p3, p1；ZREVRANK rank p2 → 0（从 0 计�
 实测要点：
 
 - 本实例 PG 端口 **54184**（规则：3 位补 54，4 位补 5），Redis 6379；
-- Redis 的 `CONFIG/KEYS/FLUSHALL` 被 `rename-command` 禁用 → 遇到 `unknown command` 先怀疑安全加固；
+- 本学习实例（2026-08-25 重建后）`CONFIG/KEYS/FLUSHALL` 已启用；**生产环境仍常见 `rename-command` 禁用**，遇到 `unknown command` 先怀疑安全加固；
 - Redis 事务无回滚：`EXEC` 时某条命令报错，其他命令照常执行；`DISCARD` 只丢排队命令；
 - `ACL LIST` 实测：`user default on ... ~* &* +@all`（本实例未细分，SEC-001 深入）。
 
@@ -256,7 +256,7 @@ Redis: ZREVRANGE rank 0 -1 → p2, p3, p1；ZREVRANK rank p2 → 0（从 0 计�
 3. **查询 = 类型命令**：没有 SQL/优化器，`WHERE id=1` → `HGETALL`，排序 → `ZREVRANGE`，集合 → `SINTER`；
 4. **行数要自己维护**：Redis 只答"这个 key 多大"，"表有多少行"用计数器（`INCR user:count`）或 `SCAN`；
 5. **事务没有回滚**：`MULTI/EXEC` 只是原子排队；"不存在才写"用 `SETNX`/`WATCH`；
-6. **安全命令被禁用是常态**：`KEYS/CONFIG/FLUSHALL` 报 unknown command 先看 `rename-command`。
+6. **安全命令可能被禁用是常态**：`KEYS/CONFIG/FLUSHALL` 报 unknown command 先看 `rename-command`（本学习实例为方便实验已启用）。
 
 ## 9. 路径与证据
 

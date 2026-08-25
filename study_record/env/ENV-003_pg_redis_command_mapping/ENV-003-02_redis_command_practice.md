@@ -25,8 +25,8 @@ PONG
 0
 ```
 
-- 本实例的 `KEYS / CONFIG / FLUSHDB / FLUSHALL` 已被 `rename-command` 禁用，
-  所以"看有哪些 key"用 `SCAN`，"清库"用 `DEL`（见 §10）；
+- 本实例（2026-08-25 环境重建后）为方便实验已启用 `KEYS / CONFIG / FLUSHDB / FLUSHALL`
+  （旧环境曾 `rename-command` 禁用）；但**生产仍建议**：看 key 用 `SCAN` 代替 `KEYS`、清库优先 `DEL`（见 §10）；
 - 练习完统一清理命令见 §10，保持 DB5 干净。
 
 ---
@@ -517,7 +517,7 @@ SCAN 0 MATCH '*' COUNT 100
 DEL <列出来的 key...>
 ```
 
-> 注意：本实例 `FLUSHDB/FLUSHALL` 被禁用（`rename-command`），所以"清库"只能用 DEL。
+> 注意：本实例已启用 `FLUSHDB/FLUSHALL`（旧环境曾禁用）；教学上仍建议用 `DEL` 精确清理，避免误清。
 > 生产上禁止对别人的库随意 FLUSH；练习库删自己建的 key 即可。
 
 ---

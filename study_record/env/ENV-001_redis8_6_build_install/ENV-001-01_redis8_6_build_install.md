@@ -72,7 +72,8 @@ Redis server v=8.6.2 sha=00000000:1 malloc=jemalloc-5.3.0 bits=64 build=126f3c44
 | `appendfsync everysec` | fsync 频率 | 默认折中：最多丢 1 秒数据 |
 | `maxmemory 1280mb` | 内存上限 | 数据全在内存，容量即内存 |
 | `maxmemory-policy volatile-lru` | 淘汰策略 | 仅淘汰带 TTL 的 key |
-| `rename-command CONFIG/FLUSHDB/FLUSHALL/KEYS ""` | 禁用危险命令 | 安全加固，防误操作 |
+| `enable-debug-command local` | 允许 DEBUG 命令（仅回环） | 2026-08-25 环境重建后启用，便于实验；生产建议 no |
+| `latency-monitor-threshold 100` | 延迟事件监控阈值(ms) | 2026-08-25 重建后启用；旧版曾 rename 禁用 CONFIG/KEYS/FLUSH* |
 | `slowlog-log-slower-than 10000` | 慢日志阈值(µs) | 相当于 pg 慢查询 |
 
 ## 6. systemd 托管与启动

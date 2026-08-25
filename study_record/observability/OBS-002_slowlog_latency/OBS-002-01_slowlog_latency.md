@@ -18,12 +18,12 @@
 
 | 工具 | 看什么 | 粒度 | 默认状态（本机实测） |
 |---|---|---|---|
-| `SLOWLOG` | 服务端哪个命令超时 | 单条命令，微秒级 | **开启**（>10ms 记录，环形保留 128 条） |
+| `SLOWLOG` | 服务端哪个命令超时 | 单条命令，微秒级 | **开启**（本环境 >1ms 记录，环形保留 256 条） |
 | `redis-cli --latency` | 客户端→Redis 往返延迟 | 端到端，毫秒级 | 随时可跑 |
 | `redis-cli --intrinsic-latency` | 本机固有延迟（进程/内核） | 微秒级 | 随时可跑 |
-| `LATENCY` 事件 | 延迟尖峰发生在哪类环节 | 事件+直方图 | **关闭**（`latency-monitor-threshold=0`） |
+| `LATENCY` 事件 | 延迟尖峰发生在哪类环节 | 事件+直方图 | 出厂默认关闭（0）；**本环境已开启**（100ms） |
 
-> 注意：本实例为安全加固把 `CONFIG` 用 `rename-command` 禁用了，所以 **`CONFIG GET/SET` 不可用，但 `SLOWLOG / LATENCY / --latency` 全部不受影响**——这是运维时容易踩的"误以为被禁用"的坑。
+> 注意：本实例（2026-08-25 重建后）`CONFIG` 与 `DEBUG` 均已启用、`LATENCY` 已开启，实验可直接做；**旧环境曾用 `rename-command` 禁用 CONFIG**——生产环境仍常见，遇到 `unknown command 'CONFIG'` 先怀疑安全加固，且 `SLOWLOG / LATENCY / --latency` 都不受影响。
 
 ---
 
@@ -32,11 +32,11 @@
 ### 2.1 配置（本机 redis.conf 实测）
 
 ```text
-slowlog-log-slower-than 10000   # 超过 10000us = 10ms 的命令才记录
-slowlog-max-len 128             # 最多保留 128 条，超出丢最旧（环形缓冲）
+slowlog-log-slower-than 1000    # 本环境 1ms（出厂默认 10000us=10ms）
+slowlog-max-len 256             # 本环境 256 条（出厂默认 128，超出丢最旧=环形缓冲）
 ```
 
-- `CONFIG GET slowlog-log-slower-than` 在本实例会报 `unknown command 'CONFIG'`（被禁用），所以看配置直接查 `redis.conf`；
+- `CONFIG GET slowlog-log-slower-than` 可直接查（本环境已启用 CONFIG）；旧环境被禁用时看 `redis.conf`；
 - 生产建议：`slowlog-log-slower-than` 设 1000~10000（1ms~10ms）之间，太大会漏掉关键慢命令，太小会被高频小慢命令刷屏。
 
 ### 2.2 制造几条真实慢命令（可复制执行）
@@ -55,7 +55,7 @@ redis-cli -h 127.0.0.1 -p 6379 -a 123456 --no-auth-warning -n 15 \
   LREM biglist 100000 150000          # 删除中间 10 万元素 → O(N) 拷贝
 ```
 
-> 本实例 `DEBUG SLEEP` 被禁用（`enable-debug-command` 未开），所以用 EVAL 制造延迟——**这本身也是个知识点：禁用了 DEBUG 的实例如何造慢命令**。
+> 本环境 `DEBUG SLEEP` 已启用（`enable-debug-command local`，仅回环可用），可直接制造延迟；**EVAL 造慢命令的方法保留**——它不依赖 DEBUG，也是模拟真实 CPU 型慢命令的更干净手段。
 
 ### 2.3 SLOWLOG GET：逐字段解析（实测输出）
 
@@ -83,7 +83,7 @@ redis-cli -h 127.0.0.1 -p 6379 -a 123456 --no-auth-warning -n 15 \
 
 ```bash
 SLOWLOG LEN        # 当前条数
-SLOWLOG GET 1000000  # 取全部（最多仍只有 128 条）
+SLOWLOG GET 1000000  # 取全部（最多仍只有 slowlog-max-len 条，本环境 256）
 SLOWLOG RESET      # 清空列表
 ```
 
@@ -133,24 +133,30 @@ Worst run took 942x longer than the average latency.
 
 ## 4. LATENCY 事件：慢的瞬间在哪个环节
 
-### 4.1 本机实测（默认关闭）
+### 4.1 出厂默认关闭（旧环境实测）
+
+旧环境（重建前）未开启监控，实测：
 
 ```text
-127.0.0.1:6379> LATENCY DOCTOR
+LATENCY DOCTOR
 I'm sorry, Dave, I can't do that. Latency monitoring is disabled
 in this Redis instance. You may use "CONFIG SET latency-monitor-threshold
 <milliseconds>" in order to enable it.
+LATENCY LATEST / HISTORY command → 空；LATENCY RESET → 0
 ```
 
-- `LATENCY LATEST` / `LATENCY HISTORY command`：返回空（无事件）；
-- `LATENCY RESET`：返回 0（什么都没重置）。
+### 4.2 本环境已开启（2026-08-25 重建后实测）
 
-### 4.2 为什么默认关闭？怎么开？
+- 新实例 `redis.conf` 已写 `latency-monitor-threshold 100`（100ms）并启动，`CONFIG SET` 亦可用；
+- 实测 `DEBUG SLEEP 0.3` 后：
 
-- 阈值 `latency-monitor-threshold` 默认 0 = 关闭，避免每命令判断的开销；
-- 开启（二选一）：
-  - 改 `redis.conf`：`latency-monitor-threshold 100`（100ms）后重启；
-  - `CONFIG SET latency-monitor-threshold 100`（本实例因安全加固禁用 CONFIG，生产按需评估是否放开）；
+```text
+LATENCY DOCTOR → Dave, I have observed latency spikes...
+1. command: 1 latency spikes (average 301ms, period 1.00 sec).
+LATENCY LATEST → command  1787646595  301  301
+```
+
+- 结论：出厂默认 `0`=关闭（避免每命令判断开销）；生产按需开启，阈值建议 100~500ms，太低会被高频小尖峰刷屏；
 - 开启后 `LATENCY DOCTOR` 会分类诊断，常见事件类别：
   `command`（命令超阈值）/ `fork`（RDB/AOF fork 耗时）/ `aof-write`（磁盘写）/ `eviction`（淘汰）/ `expire-cycle`（过期清理）；
 - 8.x 另有命令级延迟跟踪（`latency-tracking yes` + `latency-tracking-info-percentiles`），同样需要 CONFIG 开启。
@@ -161,7 +167,7 @@ in this Redis instance. You may use "CONFIG SET latency-monitor-threshold
 |---|---|---|
 | 记录对象 | 每条超阈值命令的明细（谁/何时/什么命令/耗时） | 延迟事件的发生时间与采样直方图 |
 | 关注点 | **定位到具体命令** | **看尖峰趋势与根因类别** |
-| 默认 | 开启（10ms） | 关闭 |
+| 默认 | 开启（10ms） | 出厂关闭（本环境已开 100ms） |
 | 典型场景 | "下午 3 点哪条命令慢？" | "每天凌晨 fork 事件导致尖峰？" |
 
 ---

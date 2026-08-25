@@ -28,7 +28,7 @@ redis-cli -h 127.0.0.1 -p 6379 -a 123456 --no-auth-warning INFO stats
 ```
 
 - `--no-auth-warning`：本实例启用了 requirepass，避免每次打印"密码暴露在命令行"的警告（生产用 `REDISCLI_AUTH` 环境变量更安全）；
-- 本实例 `CONFIG` 命令被 `rename-command` 禁用，所以**不能用 CONFIG 改参数**，但 INFO 是只读统计，完全不受影响。
+- 本实例 `CONFIG` 已启用（2026-08-25 环境重建后；旧环境曾 `rename-command` 禁用），可直接 `CONFIG GET/SET` 改参数；INFO 是只读统计，任何时候都不受影响。
 
 ---
 
@@ -169,7 +169,7 @@ stdbuf -oL redis-cli -h 127.0.0.1 -p 6379 -a 123456 --no-auth-warning --stat
 实测输出（配合后台压测）：
 
 ```text
-CONFIG GET databases fails: ERR unknown command 'CONFIG' ...
+CONFIG GET databases fails: ERR unknown command 'CONFIG' ...   ← 旧环境输出，重建后已无此警告行
 use default value 16 instead
 ------- data ------ --------------------- load -------------------- - child -
 keys       mem      clients blocked requests            connections
@@ -180,7 +180,7 @@ keys       mem      clients blocked requests            connections
 
 - 列含义：`keys`=当前库 key 数，`mem`=内存，`clients`=连接数，`blocked`=阻塞客户端，`requests`=累计命令数（`(+N)` 是每秒增量），`connections`=累计连接数；
 - 第一行 `clients=52` 正是压测的 50 并发 + 采样连接，压测结束后回落到 2——一眼看出负载进出；
-- **注意**：启动时会先打印一行 `CONFIG GET databases fails: ERR unknown command 'CONFIG' ... use default value 16 instead`。这是实例 `rename-command` 禁用了 CONFIG 导致的，**属预期现象，不影响统计采样**（8.x 下看到不要慌）。
+- **注意（旧环境）**：启动时曾打印一行 `CONFIG GET databases fails: ERR unknown command 'CONFIG' ... use default value 16 instead`——那是实例 `rename-command` 禁用了 CONFIG 所致，属预期现象，不影响统计采样；**2026-08-25 环境重建后已无该警告**。
 
 > **心法：`--stat` 就是 Redis 版的 `watch -n1`，适合"盯 30 秒"的快速体检；长期监控请交给 Prometheus 等拉取 INFO 解析。**
 
@@ -208,7 +208,7 @@ keys       mem      clients blocked requests            connections
 - INFO 一次返回 **14 个区块**（8.x 在 7.x 基础上新增 Hotkeys / Keysizes），按需取块、盯住 Memory / Stats / Replication 三个核心；
 - 指标含义速查：内存看 `used_memory/maxmemory/evicted_keys/碎片率`，吞吐看 `total_commands/instantaneous_ops`，健康看 `命中率/复制偏移量/落盘状态`，红线是 **`evicted_keys>0`、内存逼近上限、碎片率>1.5、命中率下降、fork 秒级**；
 - 压测对比证实：`total_commands_processed`、`keyspace_hits`、网络字节数与 OPS 同步反映负载，**监控要读变化量而非单点值**；
-- `redis-cli --stat` 每秒一行，适合快速体检；CONFIG 被禁用的实例会打印警告行，属预期；
+- `redis-cli --stat` 每秒一行，适合快速体检；旧环境 CONFIG 被禁用时曾打印警告行（属预期），重建后已无；
 - 与 PG 对照后，两边监控口径可统一：吞吐↔`pg_stat_database`、命中↔`pg_statio_*`、连接↔`pg_stat_activity`、复制↔`pg_stat_replication`。
 
 **后续深化**：慢命令与延迟定位进入 **OBS-002 SLOWLOG 与延迟分析**；内存碎片与淘汰策略深挖进入 MEM-001。
