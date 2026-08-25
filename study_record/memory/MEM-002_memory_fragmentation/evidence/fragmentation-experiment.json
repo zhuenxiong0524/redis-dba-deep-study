@@ -1,0 +1,32 @@
+{
+  "note": "MEM-002 碎片产生与治理实测（Redis 8.6.2，临时实例 6398 + 主库 6379 基线，2026-08-25）",
+  "empty_instance_warning": {
+    "test": "主库 6379：used 1.22MB / RSS 14.04MB",
+    "mem_fragmentation_ratio": 11.64,
+    "meaning": "空实例 RSS 主要是启动开销+jemalloc arena，碎片率虚高无意义；DOCTOR 正确提示 'instance is empty'"
+  },
+  "fragmentation_storm": {
+    "setup": "写入 50 万 key（value 10-400B 随机，jemalloc 多 bin）→ 删除 30 万（60%）",
+    "after_load": { "used": "128.58M", "rss": "144.41M", "frag_ratio": 1.13, "allocator_frag": 1.00 },
+    "after_delete": { "used": "54.38M", "rss": "142.78M", "frag_ratio": 2.63, "allocator_frag_ratio": 2.35, "allocator_frag_bytes": "77.16MB" },
+    "doctor_before": ["Peak memory(>150%)", "High total RSS(>1.4)", "High allocator fragmentation(>1.1，建议 activedefrag)"]
+  },
+  "remediation": {
+    "memory_purge": { "result": "RSS 基本不变（149MB→142MB），jemalloc 无法归还内部碎片页", "note": "DOCTOR 对 Peak 场景建议 PURGE 或重启" },
+    "activedefrag_off_by_default": { "note": "activedefrag=no；且 active-defrag-ignore-bytes 默认 100MB > 本次碎片 77MB，开启后 60s 无动作" },
+    "activedefrag_on": {
+      "config": "CONFIG SET activedefrag yes + active-defrag-ignore-bytes 10MB",
+      "timeline": [
+        { "t": "0s", "allocator_frag": 2.35, "rss": "142.36M" },
+        { "t": "10s", "allocator_frag": 1.27, "rss": "106.36M" },
+        { "t": "20s", "allocator_frag": 1.07, "rss": "77.64M" },
+        { "t": "60s", "allocator_frag": 1.07, "rss": "72.36M", "total_frag": 1.33, "frag_bytes": "3.78MB" }
+      ],
+      "result": "allocator_frag 2.35→1.07，RSS 142MB→72MB，DOCTOR 只剩无害的 Peak 提示"
+    }
+  },
+  "memory_usage_samples": {
+    "test": "10 万字段 hashtable：MEMORY USAGE SAMPLES 5 = SAMPLES 0 = 15,161,847B",
+    "note": "SAMPLES 影响嵌套容器估计精度；SAMPLES 0 全量精确"
+  }
+}

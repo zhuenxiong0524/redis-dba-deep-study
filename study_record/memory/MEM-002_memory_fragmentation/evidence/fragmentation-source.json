@@ -1,0 +1,30 @@
+{
+  "note": "MEM-002 内存/碎片源码取证（Redis 8.6.2，/data/redis_pkg/redis-stable/src）",
+  "info_memory": {
+    "file": "server.c:6310-6326",
+    "fields": {
+      "allocator_frag_ratio": "分配器内部碎片（jemalloc bin 内），含 allocator_frag_bytes",
+      "allocator_rss_ratio": "分配器向 OS 多占的页",
+      "rss_overhead_ratio": "非分配器 RSS 开销（代码段/共享库等）",
+      "mem_fragmentation_ratio": "RSS / used 总开销（含上述所有，兼容旧名）"
+    }
+  },
+  "memory_doctor": {
+    "file": "object.c:1421 getMemoryDoctorReport",
+    "rules": [
+      "total_allocated < 5MB → 'instance is empty'（空实例不诊断）",
+      "peak/current > 1.5 → Peak memory 报告",
+      "total_frag > 1.4 且 > 10MB → High total RSS",
+      "allocator_frag > 1.1 且 > 10MB → High allocator fragmentation（建议 activedefrag）",
+      "rss_extra > 1.1 且 > 10MB → High process RSS"
+    ]
+  },
+  "memory_command": { "file": "object.c:1639", "subcommands": "DOCTOR / MALLOC-STATS / PURGE / STATS / USAGE [SAMPLES n]" },
+  "active_defrag_config": {
+    "activedefrag": { "file": "config.c:3135", "default": "no" },
+    "active-defrag-threshold-lower": { "default": 10, "detail": "碎片率低于 10% 不触发" },
+    "active-defrag-threshold-upper": { "default": 100, "detail": "100% 时全力 defrag" },
+    "active-defrag-cycle-min/max": { "defaults": "1/25", "detail": "CPU 占用 1%-25% 自适应" },
+    "active-defrag-ignore-bytes": { "default": "100MB", "detail": "碎片字节低于 100MB 不触发（本次实验需调低才生效）" }
+  }
+}
