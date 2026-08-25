@@ -11,5 +11,20 @@
     "删除缓存 DEL cache:user:1（不是更新缓存）",
     "下次读重建新值"
   ],
-  "core_idea": "写操作只删缓存不写缓存：让读路径按需重建，避免应用层维护两套写逻辑"
+  "core_idea": "写操作只删缓存不写缓存：让读路径按需重建，避免应用层维护两套写逻辑",
+  "rebuild_clarification": {
+    "question": "写完只删缓存不写缓存——让读路径自己重建，是 Redis 机制么？",
+    "answer": "不是 Redis 机制，是应用读代码的 miss 分支（GET nil → 查 DB → SET 写回）。Redis 只负责存储与 TTL 自动过期，不回源 DB。",
+    "responsibility": {
+      "redis_mechanism": [
+        "GET 返回 nil",
+        "EXPIRE 到期删 key"
+      ],
+      "application_logic": [
+        "miss 后查 DB",
+        "SET 写回缓存",
+        "写完 DB 后 DEL 缓存"
+      ]
+    }
+  }
 }
