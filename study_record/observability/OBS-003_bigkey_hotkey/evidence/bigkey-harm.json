@@ -30,5 +30,19 @@
     "slowlog_entries": 232,
     "interpretation": "每批 1-2ms 微停顿(无感)，vs 单条 DEL 一次卡 135ms；生产阈值 10ms 时这些批操作不会进 SLOWLOG；分批删除把长时间阻塞拆成多次短停顿，对单线程服务友好"
   },
-  "impact": "单条大命令执行期间 Redis 单线程被占用，其他所有命令排队；删除/迁移大 key 是高危操作"
+  "impact": "单条大命令执行期间 Redis 单线程被占用，其他所有命令排队；删除/迁移大 key 是高危操作",
+  "unlink_vs_del": {
+    "same_key": "30 万成员 set",
+    "DEL": {
+      "wall_ms": 155,
+      "slowlog_us": 145778,
+      "block_ms": 145.8
+    },
+    "UNLINK": {
+      "wall_ms": 39,
+      "slowlog_us": 0,
+      "note": "O(1) 摘除，内存后台线程释放；used_memory 立即回落至 1.80M，碎片率短暂飙高 36 后由 allocator 回收"
+    }
+  },
+  "mechanism": "Redis 命令执行单线程（无 MVCC/无锁），任何长命令=全局停顿；阻塞损失=阻塞时长×实例吞吐(本机≈4万QPS，135ms≈5400请求排队)"
 }
