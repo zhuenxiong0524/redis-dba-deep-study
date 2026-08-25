@@ -1,0 +1,28 @@
+{
+  "note": "REP-001 复制源码取证（Redis 8.6.2，/data/redis_pkg/redis-stable/src）",
+  "sync_command": {
+    "file": "replication.c:1145",
+    "detail": "replica 发 PSYNC → syncCommand：先试 masterTryPartialResynchronization（CONTINUE），失败则 FULLRESYNC <replid> <offset>"
+  },
+  "partial_resync_conditions": {
+    "file": "replication.c:943 masterTryPartialResynchronization",
+    "cond1": "replid 不匹配（replid/replid2 均不符或超过 second_replid_offset）→ 全量",
+    "cond2": "psync_offset 不在 [backlog.offset, backlog.offset+histlen] 区间 → 全量（日志：Unable to partial resync ... for lack of backlog）",
+    "ok": "以上均通过 → +CONTINUE，从 offset 开始补发 backlog"
+  },
+  "full_sync": {
+    "detail": "BGSAVE 生成 RDB（diskless 走 rdb-channel socket 直传，8.x），从库加载 RDB 后接续增量流",
+    "state_machine": "SLAVE_STATE_WAIT_BGSAVE_START → WAIT_BGSAVE_END → SEND_BULK → ONLINE（server.h:566-572）",
+    "replica_side": "syncWithMaster（replication.c:3007）：握手 REPLCONF(AUTH/PORT/IP/CAPA) → PSYNC → 收 RDB → 切换主从流"
+  },
+  "backlog": {
+    "repl-backlog-size": { "default": "1MB", "file": "config.c:3276", "min": "16KB（CONFIG_REPL_BACKLOG_MIN_SIZE，server.h:133）", "note": "可运行时 CONFIG SET；重设会重建 backlog" },
+    "offset": "master_repl_offset 每传播一条命令前进；backlog 保留最近 repl-backlog-size 字节"
+  },
+  "replication_cron": {
+    "detail": "replicationCron 每秒检查：断线则重连（REPL_STATE_CONNECT），超时 ACK 检测 lag"
+  },
+  "lag": {
+    "detail": "master_repl_offset - slave_repl_offset；slave0 行 lag=N 为 ACK 延迟"
+  }
+}

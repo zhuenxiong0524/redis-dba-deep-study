@@ -1,0 +1,33 @@
+{
+  "note": "REP-001 复制实验（Redis 8.6.2，主 6392 / 从 6393，2026-08-25）",
+  "full_sync": {
+    "setup": "主库 20 万 key（23MB）后启动从库 replicaof",
+    "master_log": "Full resync requested by replica 127.0.0.1:6393 (rdb-channel) → Starting BGSAVE for SYNC with target: replicas sockets → BGSAVE done, 200000 keys saved, 4089122 bytes written",
+    "result": "slave0 state=online，主从 offset 一致，dbsize 均为 200000，k1/k200000 一致"
+  },
+  "incremental": {
+    "test": "SET incr:test → 主从 offset 同步前进（14→79），从库 GET 返回 hello123"
+  },
+  "partial_sync": {
+    "test": "CLIENT KILL TYPE replica → 从库自动重连",
+    "master_log": "Partial resynchronization request from 127.0.0.1:6393 accepted. Sending 0 bytes of backlog starting from offset 373973",
+    "stats": { "sync_full": 1, "sync_partial_ok": 1, "sync_partial_err": 0 },
+    "meaning": "offset 仍在 1MB backlog 内 → +CONTINUE 部分同步，不重新全量"
+  },
+  "full_resync_on_restart": {
+    "test": "重启从库（replid 未知 ? / offset -1）",
+    "stats": { "sync_full": 2, "sync_partial_ok": 3 },
+    "meaning": "无复制上下文 → 必然全量重同步（BGSAVE 253001 keys / 5382825 bytes）"
+  },
+  "readonly_replica": {
+    "test": "从库 SET → READONLY You can't write against a read only replica."
+  },
+  "master_down": {
+    "test": "shutdown 主库",
+    "result": "从库 master_link_status:down，GET 继续可用，写入仍被 READONLY 拒绝"
+  },
+  "promote": {
+    "test": "REPLICAOF NO ONE",
+    "result": "role:master，connected_slaves:0，写入恢复 OK"
+  }
+}
