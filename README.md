@@ -11,7 +11,7 @@
 ```text
 redis-learning-roadmap.md   6 周学习路线图（PG/Oracle DBA 视角）
 study_record/
-├── learning-roadmap.md     全年 25 项任务全集
+├── learning-roadmap.md     全年 28 项任务全集
 ├── completed/              月度完成账本
 ├── env/                    环境、编译、实例管理
 ├── datatype/               数据类型与内部编码
@@ -33,4 +33,4 @@ study_record/
 
 ## 进度
 
-- 2026-08：ENV-001~003 / DAT-001~004 / ARC-001~003 / MEM-001~002 / PER-001~003 / REP-001~002 / OBS-001~004 / ENG-001 / CLU-001 已完成 **25/28 项**（详见 `study_record/completed/2026-08.md`）；剩余 ENG-002~003 / OSS-001
+- 2026-08：ENV-001~003 / DAT-001~004 / ARC-001~003 / MEM-001~002 / PER-001~003 / REP-001~002 / OBS-001~004 / CLU-001~002 / SEC-001 / ENG-001~003 / OSS-001 已完成 **28/28 项（全年核心任务全部收官）**（详见 `study_record/completed/2026-08.md`）
