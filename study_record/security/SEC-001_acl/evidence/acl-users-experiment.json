@@ -1,0 +1,15 @@
+{
+  "note": "SEC-001 ACL 用户权限实测（Redis 8.6.2，独立实例 127.0.0.1:6385，2026-08-26）",
+  "baseline": { "default_user": "on nopass sanitize-payload ~* &* +@all（无密码全权限）", "requirepass_默认": "无" },
+  "alice": { "rule": "on >alice-pass ~cache:* +@all -@dangerous", "verified": [
+    { "cmd": "SET cache:user:1 v1 / GET", "result": "OK / v1" },
+    { "cmd": "SET other:key v", "result": "NOPERM No permissions to access a key（key 模式限制）" },
+    { "cmd": "KEYS *", "result": "NOPERM ... 'keys' command（@dangerous）" },
+    { "cmd": "CONFIG GET maxmemory", "result": "NOPERM ... 'config|get' command（子命令级权限）" },
+    { "cmd": "AUTH alice wrong-pass", "result": "WRONGPASS invalid username-password pair or user is disabled." } ] },
+  "bob": { "rule": "on >bob-pass ~* +get +set（默认 -@all 只加两条命令）", "verified": [ { "cmd": "SET/GET", "result": "OK/v1" }, { "cmd": "DEL k1", "result": "NOPERM ... 'del' command" } ] },
+  "dave": { "rule": "on >d-pass resetkeys %R~cache:ro:* +@all -@dangerous（Key 只读模式）", "verified": [ { "cmd": "SET cache:ro:a 1", "result": "NOPERM No permissions to access a key（%R~ 只读）" }, { "cmd": "GET cache:ro:a", "result": "100（可读）" } ], "note": "~* 之后再 %R~ 会报错（allkeys 已覆盖），需先 resetkeys" },
+  "eve": { "rule": "on >e-pass ~* &chat:* +@all（通道白名单）", "verified": [ { "cmd": "SUBSCRIBE chat:news", "result": "subscribe OK" }, { "cmd": "SUBSCRIBE other:news", "result": "NOPERM No permissions to access a channel" } ] },
+  "carol": { "rule": "on >c-pass ... → ACL SETUSER carol off", "verified": [ { "cmd": "禁用前 AUTH+PING", "result": "OK PONG" }, { "cmd": "禁用后 AUTH", "result": "WRONGPASS ... or user is disabled." } ] },
+  "password_storage": "ACL GETUSER 显示 SHA256 hex（如 alice-pass → 9b90e524...）；ACL GENPASS 生成 64 位随机 hex"
+}

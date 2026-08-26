@@ -1,0 +1,10 @@
+{
+  "note": "SEC-001 ACL 源码取证（Redis 8.6.2，/data/redis_pkg/redis-stable/src）",
+  "user_struct": { "file": "server.h:1328", "fields": "name / flags(USER_FLAG_ENABLED|DISABLED|NOPASS|SANITIZE_PAYLOAD) / passwords(list, SHA256 hex) / selectors(权限选择器，Redis 7+ 支持 %R~/%W~ 多规则) / acl_string", "bitmap": "USER_COMMAND_BITS_COUNT=1024，每命令一个 bit" },
+  "selector_flags": { "file": "server.h", "map": { "SELECTOR_FLAG_ALLKEYS": "~*", "SELECTOR_FLAG_ALLCOMMANDS": "+@all", "SELECTOR_FLAG_ALLCHANNELS": "&*" } },
+  "rule_parser": { "ACLSetUser": "acl.c:1284，解析 on/off/>pass/#hash/nopass/resetpass/~pattern/%R~pattern/%W~pattern/&channel/+cmd/-cmd/+@cat/-@cat/resetkeys/resetchannels/allkeys/allchannels" },
+  "check_path": { "ACLCheckAllPerm": "acl.c:1907 → ACLCheckAllUserCommandPerm：命令 bit + 每个 key 匹配 selectors + 通道匹配；拒绝时返回 NOPERM/错误位置", "auth": "ACLAuthenticateUser acl.c:1512：模块认证优先，否则 checkPasswordBasedAuth 比对 SHA256" },
+  "acl_log": { "addACLLogEntry": "acl.c:2693，reason ∈ command/key/auth/channel，记录 username/object/时间戳/客户端信息，默认最多 128 条" },
+  "requirepass": { "note": "CONFIG SET requirepass 即设置 default 用户密码（ACL GETUSER default 中可见 SHA256）" },
+  "rename_command": { "file": "config.c:543", "detail": "启动时从命令表删除原名，注册新名；目标名为空串=彻底禁用；运行期 CONFIG SET 不支持；ACL 权限按原命令名判定（实测 redis_flushall_8x 仍受 flushall 的 -@dangerous 约束）" }
+}

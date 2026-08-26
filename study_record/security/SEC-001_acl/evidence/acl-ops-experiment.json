@@ -1,0 +1,34 @@
+{
+  "note": "SEC-001 ACL 运维能力实测：ACL LOG / requirepass / ACL SAVE / rename-command（2026-08-26）",
+  "acl_log": {
+    "sample_entries": [
+      { "reason": "command", "object": "keys", "username": "alice" },
+      { "reason": "command", "object": "config|get", "username": "alice" },
+      { "reason": "key", "object": "other:key", "username": "alice" },
+      { "reason": "auth", "object": "AUTH", "username": "alice" },
+      { "reason": "command", "object": "del", "username": "bob" },
+      { "reason": "key", "object": "cache:ro:a", "username": "dave" },
+      { "reason": "channel", "object": "other:news", "username": "eve" }
+    ],
+    "fields": "entry-id / reason / object / username / age-seconds / client-info / timestamp"
+  },
+  "requirepass": {
+    "cmd": "CONFIG SET requirepass 123456",
+    "after": "未认证 PING → NOAUTH；AUTH 123456 → OK；ACL GETUSER default 出现 passwords=8d969eef...（= sha256('123456')）",
+    "conclusion": "requirepass 只是 default 用户密码的快捷方式，ACL 是其超集"
+  },
+  "acl_save": {
+    "cmd": "ACL SAVE → 写 aclfile users.acl；重启后 ACL LIST 完整恢复（alice 等 5 用户）",
+    "users_acl_example": "user alice on sanitize-payload #9b90e524... ~cache:* resetchannels +@all -@dangerous"
+  },
+  "rename_command": {
+    "config": "rename-command CONFIG \"\" / rename-command FLUSHALL redis_flushall_8x / rename-command KEYS \"\"",
+    "verified": [
+      { "cmd": "CONFIG GET maxmemory", "result": "ERR unknown command 'CONFIG'（已禁用）" },
+      { "cmd": "KEYS *", "result": "ERR unknown command 'KEYS'（已禁用）" },
+      { "cmd": "redis_flushall_8x", "result": "OK（重命名生效）" },
+      { "cmd": "alice 执行 redis_flushall_8x", "result": "NOPERM ... 'flushall' command（ACL 按原命令名判定）" }
+    ],
+    "note": "运行期 CONFIG SET rename-command 报 ERR Unknown option（仅启动时配置）"
+  }
+}
