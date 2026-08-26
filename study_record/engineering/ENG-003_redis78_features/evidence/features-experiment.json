@@ -1,0 +1,30 @@
+{
+  "note": "ENG-003 Redis 7/8 新特性实测（Redis 8.6.2，127.0.0.1:6385，2026-08-26）",
+  "redis_function": [
+    { "cmd": "FUNCTION LOAD mylib.lua（#!lua name=mylib，register_function('hello', ...)）", "result": "加载成功（重复加载报 Library already exists）" },
+    { "cmd": "FCALL hello 0 redis", "result": "hello redis（脚本即服务端函数，无 eval 代码传输）" },
+    { "cmd": "FUNCTION LIST", "result": "显示 library mylib engine LUA functions hello；本实例另有 locklib（ENG-002 遗留）" }
+  ],
+  "sharded_pubsub": [
+    { "cmd": "SSUBSCRIBE news（客户端 A）", "result": "收到 smessage news sharded-msg" },
+    { "cmd": "SPUBLISH news sharded-msg", "result": "1（分片订阅者收到）" },
+    { "cmd": "PUBLISH news normal-msg", "result": "0（普通 PUBLISH 不投递到分片订阅者，频道完全隔离）" }
+  ],
+  "client_setinfo": { "cmd": "CLIENT SETINFO lib-name codex-test / lib-ver 1.0.0（同会话）", "result": "CLIENT LIST 显示 lib-name=codex-test lib-ver=1.0.0（可观测性：按客户端库定位）" },
+  "hexpire": [
+    { "cmd": "HSET session:2 token t1 field2 v2", "result": "2" },
+    { "cmd": "HEXPIRE session:2 5 FIELDS 1 token", "result": "1（只对 token 字段设 5s 过期）" },
+    { "cmd": "HEXPIRETIME session:2 FIELDS 1 token", "result": "1787724839（字段级绝对过期时间戳）" },
+    { "cmd": "6 秒后 HGETALL session:2", "result": "field2 v2（token 字段已过期删除，field2 保留）" }
+  ],
+  "vector_set_vss": [
+    { "cmd": "VADD vec VALUES 3 1 0 0 item1 / 0.997 0.05 0.05 item1a / 0.5 0.5 0.5 item3", "result": "各返回 1（新元素插入；重复插入返回 0，CAS 语义）" },
+    { "cmd": "VSIM vec ELE item1 COUNT 3 WITHSCORES", "result": "item1=1.0, item1a=0.998747, item3=0.788675（近似余弦相似度）" },
+    { "cmd": "VINFO vec", "result": "quant-type=int8, hnsw-m=16, vector-dim=3, size=5, max-level=1, vset-uid=0" },
+    { "cmd": "VCARD vec / VDIM vec", "result": "5 / 3" }
+  ],
+  "notes": [
+    "6385 为 SEC-001 加固实例：rename-command 禁用了 CONFIG/KEYS，验证命令时注意区分'被禁用'与'不存在'",
+    "Sharded Pub/Sub 在集群模式按 channel 的 hash slot 路由，不同节点订阅者只收本槽消息；单机下与普通 pubsub 数据隔离"
+  ]
+}

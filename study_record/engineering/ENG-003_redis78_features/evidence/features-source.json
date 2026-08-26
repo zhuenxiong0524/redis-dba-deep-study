@@ -1,0 +1,12 @@
+{
+  "note": "ENG-003 Redis 7/8 新特性源码取证（Redis 8.6.2，/data/redis_pkg/redis-stable）",
+  "redis_function": { "file": "src/functions.c:619 fcallCommandGeneric / :661 fcallCommand / :964 functionsCreateWithLibraryCtx", "detail": "FCALL 从函数库(函数引擎)查找已注册函数执行，FUNCTION LOAD 在服务端保存库定义；函数像普通命令一样运行（有 keys 声明、可被 ACL/权限系统管理），不再需要向每个节点传脚本" },
+  "sharded_pubsub": { "file": "src/pubsub.c:718 spublishCommand / :726 ssubscribeCommand", "detail": "SPUBLISH 走 pubsubPublishMessageAndPropagateToCluster（按 channel hash slot 只广播到对应分片），SSUBSCRIBE 用 pubSubShardType 订阅分片频道，存储于 server.pubsubshard_channels；与普通 PUBLISH/SUBSCRIBE 的频道空间完全隔离" },
+  "hexpire": { "file": "src/t_hash.c:3920 hexpireCommand → hexpireGenericCommand", "detail": "HEXPIRE/HPEXPIRE/HEXPIRETIME 对 hash 内指定字段（FIELDS 子句）设置独立过期时间，惰性+主动删除与 key 级过期同一机制；配套 HTTL/HPTTL/HEXPIRETIME 查询" },
+  "msetex_84": { "file": "src/t_string.c:723 msetexCommand", "detail": "Redis 8.4 新增 MSETEX：一次设置多 key 且各自带 TTL" },
+  "cluster_migration_84": { "file": "src/cluster_asm.c:991 clusterMigrationCommand", "detail": "Redis 8.4 新增 CLUSTER MIGRATION：原子槽迁移（迁移过程数据双写+故障回滚），替代旧 MIGRATE 的逐 key 迁移" },
+  "vector_set_vss": {
+    "file": "modules/vector-sets/vset.c:2250 VADD / :2318 VSIM / :2444 VINFO；vset.c:234 createVectorSetObject(dim, quant_type, hnsw_M)；modules/vector-sets/hnsw.c",
+    "detail": "Redis 8.0 内置 Vector Set：基于 HNSW 近似最近邻（hnsw_new），默认 int8 量化（vset.c:294 HNSW_QUANT_Q8→int8），支持余弦相似度检索、可降维投影；VADD 支持 CAS/更新属性，VSIM 可后台线程并行搜索"
+  }
+}
