@@ -1,0 +1,35 @@
+{
+  "note": "CLU-001 路由/重定向实测（Redis 8.6.2，本机 3 主：7001=0-5460 / 7002=5461-10922 / 7003=10923-16383，2026-08-26）",
+  "topology": { "7001": "0-5460", "7002": "5461-10922", "7003": "10923-16383", "bus_ports": "17001/17002/17003" },
+  "keyslot_verify": [
+    { "key": "foo", "slot": 12182, "owner": 7003 },
+    { "key": "user1000", "slot": 3443, "owner": 7001 },
+    { "key": "{user1000}.following", "slot": 3443, "note": "与 user1000 同槽（hash tag）" },
+    { "key": "{user1000}.followers", "slot": 3443, "note": "同上" },
+    { "key": "foo{bar}baz", "slot": 5061 },
+    { "key": "foo{{bar}}zap", "slot": 4015, "note": "第一对 {} 中间为空 → 哈希整个 key" },
+    { "key": "foo{bar}{zap}", "slot": 5061, "note": "只有第一对 {...} 生效" },
+    { "key": "{}", "slot": 15257, "note": "{} 中间为空 → 整 key" },
+    { "key": "foo{", "slot": 7673, "note": "无闭合 } → 整 key" }
+  ],
+  "independent_computation": "slot_distribution.c 用源码 crc16 表 + keyHashSlot 逻辑重算，11 个用例与 redis-cli CLUSTER KEYSLOT 全部一致",
+  "mov_ed": {
+    "no_c": "redis-cli -p 7001 SET foo v1 → 'MOVED 12182 127.0.0.1:7003'（客户端不处理则命令不执行）",
+    "with_c": "redis-cli -c 自动跟随 → OK；GET foo → v1；数据实际落在 7003（slot 12182 ∈ 10923-16383）"
+  },
+  "crossslot": "redis-cli -p 7001 MSET foo x bar y → 'CROSSSLOT Keys in request don't hash to the same slot'；hash tag 同槽 {tag}a {tag}b → OK",
+  "ask_flow": {
+    "key": "testkey（slot 4757 ∈ 7001）",
+    "steps": [
+      { "step": "7001 SETSLOT 4757 MIGRATING <7002-id>", "result": "OK" },
+      { "step": "7002 SETSLOT 4757 IMPORTING <7001-id>", "result": "OK" },
+      { "step": "7001 MIGRATE 127.0.0.1 7002 testkey 0 5000", "result": "OK（key 迁到 7002）" },
+      { "step": "7001 GET testkey", "result": "ASK 4757 127.0.0.1:7002（源节点 key 缺失且槽 migrating）" },
+      { "step": "7002 GET testkey（未 ASKING）", "result": "MOVED 4757 127.0.0.1:7001（导入态需 ASKING 标志）" },
+      { "step": "7002 同连接 ASKING + GET", "result": "OK → v1（ASKING 是连接级标志，分两条连接无效）" }
+    ],
+    "cleanup": "7001/7002 SETSLOT 4757 NODE <7001-id> 后槽位恢复 0-5460，testkey 迁回"
+  },
+  "pipe_behavior": "redis-cli --pipe -c 不跟随 MOVED：30000 条 SET 报 errors: 20023（跨槽 key 全部 MOVED 失败），只有命中 7001 本槽的 9977 条成功；普通 -c 模式按行读入会跟随重定向（30000 条 22s 完成）",
+  "distribution_30k": { "7001": 9978, "7002": 10027, "7003": 9996, "note": "写入 30000 个 load:N key，三节点基本均分（1/3）" }
+}

@@ -1,0 +1,13 @@
+{
+  "note": "CLU-001 槽位分布实验（slot_distribution.c 复用 8.6.2 源码 crc16/keyHashSlot，2026-08-26）",
+  "random_100k": {
+    "keys": 100000, "slots_total": 16384, "slots_covered": 16355,
+    "avg_per_slot": 6.1, "min_per_slot": 0, "max_per_slot": 16, "range": 16,
+    "conclusion": "crc16 低 14 位分布均匀，无热点槽；最密槽仅 16 个 key"
+  },
+  "hashtag_hotspot": {
+    "keys": "1000 个 {hotuser}.field:0..999",
+    "slots_hit": 1,
+    "conclusion": "hash tag 把所有相关 key 钉在同一槽 → 单槽热点风险（对应 PG 的分区键倾斜）"
+  }
+}

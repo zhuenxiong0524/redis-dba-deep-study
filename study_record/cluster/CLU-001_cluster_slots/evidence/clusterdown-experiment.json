@@ -1,0 +1,10 @@
+{
+  "note": "CLU-001 CLUSTERDOWN 演示（require-full-coverage 默认开启，node-timeout=5000ms）",
+  "timeline": [
+    { "t": "+0s", "event": "redis-cli -p 7003 shutdown nosave", "state_7001": "cluster_state:ok / slots_ok:16384", "write": "正常 MOVED 重定向" },
+    { "t": "+7s", "event": "等待中", "state_7001": "cluster_state:ok / slots_ok:10923 / slots_pfail:5461", "write": "正常 MOVED（PFAIL 尚未升级为 FAIL）" },
+    { "t": "+15s", "event": "PFAIL→FAIL 传播完成", "state_7001": "cluster_state:fail / slots_ok:10923 / slots_fail:5461", "write": "CLUSTERDOWN The cluster is down（写入拒绝）" },
+    { "t": "+重启7003后立即", "event": "FAIL 清除、gossip 恢复", "state_7001": "cluster_state:ok / slots_ok:16384", "write": "恢复写入" }
+  ],
+  "conclusion": "任何槽位未被健康节点覆盖即全集群拒绝写入（与 PG 无直接对应，更接近分布式系统的全局一致判断）；CLUSTER KEYSLOT 等无 key 命令不受影响"
+}

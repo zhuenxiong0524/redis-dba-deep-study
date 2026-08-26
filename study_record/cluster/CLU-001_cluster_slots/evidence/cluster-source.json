@@ -1,0 +1,39 @@
+{
+  "note": "CLU-001 Cluster 槽位/路由/集群总线 源码取证（Redis 8.6.2，/data/redis_pkg/redis-stable/src）",
+  "slot_computation": {
+    "keyHashSlot": {
+      "file": "cluster.h:59",
+      "logic": "先找第一个 '{'；无则对整个 key 做 crc16 & 0x3FFF；找到 '{' 后找其后第一个 '}'；无 '}' 或中间为空则仍哈希整个 key；否则只哈希 { 与 } 之间的子串",
+      "note": "只有第一对 {...} 生效；'foo{bar}{zap}' 与 'foo{bar}baz' 同槽"
+    },
+    "crc16": {
+      "file": "crc16.c",
+      "detail": "XMODEM 变体（CRC-16/CCITT），poly=0x1021，init=0，表驱动 256 项，逐字节 (crc<<8)^tab[((crc>>8)^byte)&0xFF]"
+    },
+    "slot_count": { "mask_bits": 14, "slots": 16384, "expr": "crc16(key) & 0x3FFF（取低 14 位）" }
+  },
+  "routing": {
+    "getNodeByQuery": { "file": "cluster.c:1191", "detail": "把所有 key（含 MULTI/EXEC 内命令）合并为统一路径：逐个算槽，首个 key 定槽与目标节点，后续 key 槽不一致返回 CROSSSLOT；槽无人服务返回 DOWN_UNBOUND；迁移/导入态计数 missing/existing keys" },
+    "redirection_flow": {
+      "migrating": "migrating_slot && missing_keys 且无 existing → ASK(getMigratingSlotDest)；有 existing → TRYAGAIN",
+      "importing": "importing_slot && (CLIENT_ASKING || CMD_ASKING) → 本节点服务；多 key 且有缺失 → TRYAGAIN",
+      "base": "n != myself → MOVED"
+    },
+    "clusterRedirectClient": { "file": "cluster.c:1443", "reply_format": "-MOVED <slot> <ip>:<port> / -ASK <slot> <ip>:<port>，端口按 TLS/非 TLS 客户端选择" },
+    "error_codes": { "file": "cluster.h:31",
+      "map": { "CROSS_SLOT": "Keys in request don't hash to the same slot", "UNSTABLE": "TRYAGAIN（迁移中多 key）", "ASK": 3, "MOVED": 4, "DOWN_STATE": "CLUSTERDOWN", "DOWN_UNBOUND": "CLUSTERDOWN Hash slot not served" } }
+  },
+  "cluster_bus": {
+    "port": "bus 端口 = 客户端端口 + 10000（本实验 7001@17001）",
+    "clusterMsg": { "file": "cluster_legacy.h:220", "detail": "sig='RCmb'（Redis Cluster message bus），totlen 总长，ver=CLUSTER_PROTO_VER=1，type 枚举 0-10（PING/PONG/MEET/FAIL/PUBLISH/FAILOVER_AUTH_REQUEST/FAILOVER_AUTH_ACK/UPDATE/MFSTART/MODULE/PUBLISHSHARD），count=gossip 条目数" },
+    "gossip_entry": { "file": "cluster_legacy.h:110 clusterMsgDataGossip", "fields": "nodename(40B sha1hex)/ping_sent/pong_received/ip/port/cport/flags/pport" },
+    "ping_frequency": { "file": "cluster_legacy.c:4731 clusterCron", "detail": "每 100ms 跑一次；每 10 次迭代随机挑 5 个节点中 pong_received 最老的发 PING（约每秒 1 次）；另对超过 node_timeout/2 未收到 pong 的节点主动补 PING" },
+    "gossip_count": { "file": "cluster_legacy.c:3683 clusterSendPing", "detail": "wanted = nodes/10，至少 3 条；PFAIL 节点全部携带，加速 FAIL 传播" },
+    "gossip_process": { "file": "cluster_legacy.c:2114", "detail": "收到 PFAIL/FAIL 标记且发送者是 master → clusterNodeAddFailureReport 记录；markNodeAsFailingIfNeeded 中 quorum = cluster->size/2 + 1（多数主节点弱一致）" },
+    "clusterState": { "file": "cluster_legacy.h:335",
+      "key_fields": { "slots[16384]": "槽→节点映射", "migrating_slots_to": "迁移中目标", "importing_slots_from": "导入中源", "nodes": "节点字典", "currentEpoch": "全局纪元", "size": "有槽主节点数" } }
+  },
+  "cluster_down": {
+    "clusterUpdateState": { "file": "cluster_legacy.c:5151", "detail": "require_full_coverage=yes（默认）时任何槽未被健康节点覆盖 → CLUSTER_FAIL；PFAIL 不算 FAIL，需等 FAIL 传播" }
+  }
+}

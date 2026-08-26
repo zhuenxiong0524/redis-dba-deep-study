@@ -1,0 +1,15 @@
+{
+  "note": "CLU-001 集群总线/Gossip 实测（3 主集群，node-timeout=5000ms）",
+  "bus_listen": { "client": "7001/7002/7003", "bus": "17001/17002/17003（+10000）", "magic": "RCmb（源码 cluster_legacy.h clusterMsg）" },
+  "gossip_counters": {
+    "t0": { "ping_sent": 23, "pong_sent": 21, "ping_received": 19, "pong_received": 23 },
+    "t_plus_6s": { "ping_sent": 31, "pong_sent": 28, "ping_received": 26, "pong_received": 31 },
+    "delta_6s": { "ping_sent": 8, "pong_sent": 7, "ping_received": 7, "pong_received": 8 },
+    "conclusion": "约每秒 1 次 PING 到随机节点（clusterCron 每 100ms，每 10 次迭代发一次），PONG 对称回复"
+  },
+  "fail_propagation": {
+    "after_kill_7003": "cluster_stats_messages_fail_sent:1 / fail_received:1（FAIL 消息广播，来源 CLUSTERDOWN 演示）",
+    "notes": "PFAIL→FAIL 由多数主节点弱一致（quorum=size/2+1）触发"
+  },
+  "cluster_info_fields": "8.x CLUSTER INFO 含 cluster_slot_migration_active_tasks / trim_running 等新字段（Redis 8 槽位迁移新特性）"
+}
