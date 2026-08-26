@@ -1,0 +1,21 @@
+{
+  "note": "CLU-002 主节点故障转移演练（kill 7002 → 从库 7005 自动提升 → 旧主回归降级，2026-08-26）",
+  "kill_time": "13:50:03.77（redis-cli -p 7002 shutdown nosave）",
+  "timeline_7005_log": [
+    { "t": "13:50:06~11", "event": "7005 持续重连主库 7002 失败（SYNC Connection refused ×5，每秒一次）" },
+    { "t": "13:50:11.219", "event": "FAIL message received from 7003 about 7002 → Cluster state changed: fail（PFAIL 升级 FAIL 由多数主节点弱一致触发）" },
+    { "t": "13:50:11.319", "event": "Start of election delayed for 700 ms (rank #0, offset 474662)——延迟 = 500ms 固定(等 FAIL 传播) + random(0-500) + rank*1000；rank 按复制偏移量排序，最新者 rank 0" },
+    { "t": "13:50:12.042", "event": "Starting a failover election for epoch 10（向 7001/7003 发起 FAILOVER_AUTH_REQUEST）" },
+    { "t": "13:50:12.049", "event": "Failover election won: I'm the new master. configEpoch set to 10" },
+    { "t": "13:50:12.051", "event": "Cluster state changed: ok（接管 0-299 6001-10922）" }
+  ],
+  "downtime_window": "仅 13:50:11.219→12.051 约 0.8s 为 CLUSTERDOWN（拒写窗口）；其余时刻读写正常（演练中 +5s/+10s/+15s 写入均 OK）",
+  "data_integrity": { "new_master_7005": "DBSIZE=9569（7002 原数据完整接管）", "drill_keys": "drill:pre=failover-before / drill:t15=z 均正常" },
+  "old_master_return": {
+    "restart": "setsid redis-server 重启 7002",
+    "auto_demote": "role=slave, master_host=127.0.0.1, master_port=7005（旧主自动降级为新主从库）",
+    "full_sync": "master_link_status=up，slave_repl_offset==master_repl_offset==474690，DBSIZE=9569（追平）"
+  },
+  "final_topology": "7001 master 540-6000←7004 / 7005 master 0-539 6001-10922←7002 / 7003 master 10923-16383←7006",
+  "election_source": { "file": "cluster_legacy.c:4376", "formula": "failover_auth_time = now + 500 + random()%500 + failover_auth_rank*1000", "quorum": "cluster_legacy.c:4301 needed_quorum = (cluster->size/2)+1", "vote_rules": "每 epoch 只投一票（lastVoteEpoch）；对同一主库 node_timeout*2 内不重复投票" }
+}

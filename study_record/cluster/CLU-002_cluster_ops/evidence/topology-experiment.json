@@ -1,0 +1,13 @@
+{
+  "note": "CLU-002 3主3从扩容实验（Redis 8.6.2，本机 6 节点，2026-08-26）",
+  "steps": [
+    { "cmd": "redis-cli --cluster add-node 127.0.0.1:7004 127.0.0.1:7001", "result": "OK（新节点以无槽 master 身份入网，自动 CLUSTER MEET）" },
+    { "cmd": "redis-cli -p 7004 cluster replicate <7001-id>", "result": "OK（7004 成为 7001 从库，全量同步 9977 keys）" },
+    { "cmd": "7005→7002 / 7006→7003", "result": "OK，全部同步（slave_repl_offset == master_repl_offset）" }
+  ],
+  "initial_topology": {
+    "7001": "master 0-5460 ← 7004", "7002": "master 5461-10922 ← 7005", "7003": "master 10923-16383 ← 7006",
+    "note": "add-node 连续执行时偶发 'Nodes don't agree about configuration'，等 1-2s gossip 收敛后重试即成功"
+  },
+  "replica_sync": { "7004": "DBSIZE=9977 与主一致", "7005": "10027", "7006": "9996", "offset": "slave_repl_offset == master_repl_offset == 14（同步完成无积压）" }
+}

@@ -1,0 +1,12 @@
+{
+  "note": "CLU-002 集群限制实测（多 key 命令的槽约束，2026-08-26）",
+  "cases": [
+    { "cmd": "MGET load:100 load:20000（跨槽）", "result": "CROSSSLOT Keys in request don't hash to the same slot" },
+    { "cmd": "EVAL ... SET KEYS[1] + SET KEYS[2]（跨槽 Lua）", "result": "CROSSSLOT Keys in request don't hash to the same slot" },
+    { "cmd": "MULTI + SET a(跨槽) + SET b(本槽) + EXEC（非重定向连接）", "result": "入队时 SET a 即 MOVED → EXECABORT Transaction discarded because of previous errors" },
+    { "cmd": "MULTI + SET {tag}a + SET {tag}b + EXEC（同槽 hash tag，直连槽主）", "result": "OK OK 正常执行" },
+    { "cmd": "带 -c 重定向客户端在 MULTI 中段发生 MOVED", "result": "redis-cli 跟随 MOVED 重建连接 → EXEC without MULTI（事务上下文被破坏）" },
+    { "cmd": "PING / CLUSTER KEYSLOT 等无 key 命令", "result": "任意节点可用，不受槽约束" }
+  ],
+  "conclusion": "跨节点原子性只能通过 hash tag 钉同槽获得；事务/Lua/多 key 命令必须同槽；重定向客户端会破坏 MULTI 上下文，客户端库需在事务前锁定节点"
+}

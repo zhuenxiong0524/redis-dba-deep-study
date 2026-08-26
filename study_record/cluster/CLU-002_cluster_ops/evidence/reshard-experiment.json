@@ -1,0 +1,21 @@
+{
+  "note": "CLU-002 reshard / rebalance 在线迁移实测（2026-08-26）",
+  "reshard_1": {
+    "cmd": "redis-cli --cluster reshard 127.0.0.1:7001 --cluster-from <7002-id> --cluster-to <7001-id> --cluster-slots 540 --cluster-yes",
+    "result": "slot 5461-6000 从 7002 迁到 7001，逐槽日志 'Moving slot X from 127.0.0.1:7002 to 127.0.0.1:7001'，点号=每迁移一个 key",
+    "before_after": { "7001": "9977 → 10975", "7002": "10027 → 9029", "7003": "9996 → 9996" },
+    "keys_follow_slots": "+998 / -998，从库同步（7004=10975 / 7005=9029 / 7006=9996）",
+    "data_check": "load:60（slot 192）等在迁移后路由到新主且值正确"
+  },
+  "reshard_2_online": {
+    "cmd": "后台 reshard 300 槽（7001→7002）的同时，前台 200 次 SET 读写",
+    "result": "SET OK=200 异常=0；迁移期间写入的 key 迁移完成后可读（load:98=new-1）",
+    "conclusion": "reshard 全程在线：客户端靠 MOVED/ASK 重定向无缝切换，无需停服"
+  },
+  "rebalance": {
+    "cmd": "redis-cli --cluster rebalance 127.0.0.1:7001 --cluster-yes",
+    "result": "Moving 240 slots from 7001 to 7005；迁移后槽数 7005=5462 / 7001=5461 / 7003=5461（总 16384）",
+    "note": "rebalance 按槽数把负载从最重节点搬给最轻节点，目标 16384/n"
+  },
+  "protocol": "每槽迁移 = 源 SETSLOT MIGRATING + 目标 SETSLOT IMPORTING + 逐 key MIGRATE + 目标/源 SETSLOT NODE（同 CLU-001 ASK 实验），redis-cli --cluster 工具自动化该序列"
+}
