@@ -1,0 +1,11 @@
+{
+  "note": "ENG-002 分布式锁源码取证（Redis 8.6.2）",
+  "set_nx_ex": { "file": "src/t_string.c:85 setGenericCommand", "detail": "SET 命令单点执行，NX/XX/EX/PX 在命令处理内原子完成（单线程事件循环无并发窗口）" },
+  "eval_atomic": { "file": "src/eval.c:552 evalGenericCommand → luaCallFunction", "detail": "Lua 脚本在事件循环内同步执行，脚本内多条 Redis 命令原子不可分割（与 MULTI 区别：可带逻辑分支/循环）" },
+  "key_insights": [
+    "SET NX EX 是一条命令完成'检查不存在+写入+过期'，无中间态",
+    "SETNX + EXPIRE 两条命令存在崩溃窗口（锁永不释放）",
+    "释放锁必须 Lua 校验 token（GET 值==token 才 DEL），否则可能误删他人锁",
+    "过期时间=锁的最坏持有时间；续期（watchdog）也要 token 校验"
+  ]
+}

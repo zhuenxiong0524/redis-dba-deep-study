@@ -1,0 +1,19 @@
+{
+  "note": "ENG-002 分布式锁实测（Redis 8.6.2，127.0.0.1:6385，2026-08-26）",
+  "acquire": [
+    { "cmd": "SET lock:order owner-A NX EX 30", "result": "OK（第一个持有者）" },
+    { "cmd": "SET lock:order owner-B NX EX 30", "result": "(nil)（互斥生效）" }
+  ],
+  "release_with_token": [
+    { "cmd": "EVAL 校验 GET==owner-B → DEL", "result": "0（token 不匹配，锁未被删，GET 仍=owner-A）" },
+    { "cmd": "EVAL 校验 GET==owner-A → DEL", "result": "1（token 匹配，锁删除）" }
+  ],
+  "expiry": { "cmd": "SET lock:job worker-1 NX EX 3", "result": "TTL=3 → 4s 后 key 消失 → worker-2 可重新加锁（防死锁）" },
+  "anti_pattern": { "cmd": "SETNX lock:bad 1 + 独立 EXPIRE", "note": "两步非原子：EXPIRE 前崩溃则锁永不释放（旧版 SETNX 的经典坑）" },
+  "renewal": [
+    { "cmd": "SET lock:renew worker-1 NX EX 30 → Lua PEXPIRE 60000", "result": "TTL 30→60（续期成功）" },
+    { "cmd": "attacker 续期", "result": "0（非持有者被拒）" }
+  ],
+  "single_op_atomic": "INCR 等单命令在单线程下天然原子（10 次并发 INCR=10，无需锁）；锁只用于'多步操作'（读-改-写序列）",
+  "lua_rmw": "EVAL DECR 到 0 为止（读改写原子化，返回剩余计数）"
+}
